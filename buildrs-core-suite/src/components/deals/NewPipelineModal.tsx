@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Sparkles } from 'lucide-react'
-import { createPipeline, createStagesBulk } from '@/data/crm'
+// Temporarily mock these functions until Convex is available
+const createPipeline = async (data: any) => ({ id: Date.now().toString(), ...data });
+const createStagesBulk = async (stages: any) => stages.map((s: any, i: number) => ({ id: (Date.now() + i).toString(), ...s }));
 import { useToast } from '@/hooks/use-toast'
 
 type StageDraft = { name: string; probability: number }

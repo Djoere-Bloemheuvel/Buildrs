@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Search, Plus, Filter, Download, MoreHorizontal, User, Building2, Phone, Mail, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -30,8 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
-import { fetchEnrichedContacts } from '@/data/crm';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 
 // Minimal type for the enriched view rows we render in this table
 type EnrichedContact = {
@@ -84,19 +82,110 @@ function getStatusColor(status: string) {
 export default function ContactsPage() {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { profile } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile data
+  const profile = { client_id: 'client-1' };
 
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(25);
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['contacts-enriched', search, statusFilter, page, pageSize, profile?.client_id],
-    queryFn: () => fetchEnrichedContacts(search, page, pageSize, profile?.client_id, 'created_at', 'desc'),
-    enabled: !!profile?.client_id,
-    placeholderData: (previousData) => previousData,
-  });
-  const contacts: EnrichedContact[] = (data as any)?.data ?? []
-  const total = (data as any)?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  
+  // Mock contacts data
+  const mockContacts: EnrichedContact[] = [
+    {
+      id: '1',
+      contact_id: 'contact-1',
+      first_name: 'John',
+      last_name: 'Doe',
+      email: 'john.doe@acme.com',
+      mobile_phone: '+31 6 12345678',
+      status: 'warm',
+      company_name: 'Acme Corporation',
+      domain: 'acme.com',
+      website: 'https://acme.com',
+      linkedin_url: 'https://linkedin.com/in/johndoe',
+      job_title: 'CTO',
+      function_group: 'Technology Decision Makers',
+      company_city: 'Amsterdam',
+      company_state: 'Noord-Holland',
+      company_country: 'Netherlands'
+    },
+    {
+      id: '2',
+      contact_id: 'contact-2',
+      first_name: 'Jane',
+      last_name: 'Smith',
+      email: 'jane.smith@techsolutions.nl',
+      mobile_phone: '+31 6 87654321',
+      status: 'hot',
+      company_name: 'Tech Solutions BV',
+      domain: 'techsolutions.nl',
+      website: 'https://techsolutions.nl',
+      linkedin_url: 'https://linkedin.com/in/janesmith',
+      job_title: 'Marketing Director',
+      function_group: 'Marketing Decision Makers',
+      company_city: 'Rotterdam',
+      company_state: 'Zuid-Holland',
+      company_country: 'Netherlands'
+    },
+    {
+      id: '3',
+      contact_id: 'contact-3',
+      first_name: 'Peter',
+      last_name: 'van Berg',
+      email: 'p.vanberg@digitalcommerce.com',
+      mobile_phone: '+31 6 55566677',
+      status: 'cold',
+      company_name: 'Digital Commerce Ltd',
+      domain: 'digitalcommerce.com',
+      website: 'https://digitalcommerce.com',
+      linkedin_url: 'https://linkedin.com/in/petervb',
+      job_title: 'CEO',
+      function_group: 'C-Level',
+      company_city: 'Utrecht',
+      company_state: 'Utrecht',
+      company_country: 'Netherlands'
+    },
+    {
+      id: '4',
+      contact_id: 'contact-4',
+      first_name: 'Lisa',
+      last_name: 'de Vries',
+      email: 'lisa@buildrs.tech',
+      mobile_phone: '+31 6 99988877',
+      status: 'qualified',
+      company_name: 'Buildrs Technologies',
+      domain: 'buildrs.tech',
+      website: 'https://buildrs.tech',
+      linkedin_url: 'https://linkedin.com/in/lisadevries',
+      job_title: 'Product Manager',
+      function_group: 'Product Decision Makers',
+      company_city: 'Eindhoven',
+      company_state: 'Noord-Brabant',
+      company_country: 'Netherlands'
+    }
+  ];
+  
+  // Filter contacts based on search and status
+  let filteredContacts = mockContacts;
+  
+  if (search) {
+    filteredContacts = filteredContacts.filter(contact => 
+      contact.first_name?.toLowerCase().includes(search.toLowerCase()) ||
+      contact.last_name?.toLowerCase().includes(search.toLowerCase()) ||
+      contact.email?.toLowerCase().includes(search.toLowerCase()) ||
+      contact.company_name?.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+  
+  if (statusFilter !== 'all') {
+    filteredContacts = filteredContacts.filter(contact => contact.status === statusFilter);
+  }
+  
+  const contacts: EnrichedContact[] = filteredContacts;
+  const total = filteredContacts.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const isLoading = false;
+  const error = null;
 
   const columns: ColumnDef<EnrichedContact>[] = [
     {

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 import {
   Search,
   Plus,
@@ -82,7 +82,9 @@ type Campaign = {
 };
 
 export default function LeadABM() {
-  const { profile } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile data
+  const profile = { client_id: 'client-1' };
   const { toast } = useToast();
   const qc = useQueryClient();
 

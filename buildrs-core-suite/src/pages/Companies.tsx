@@ -1,7 +1,4 @@
-
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/hooks/useAuth'
+import { Card, CardContent } from '@/components/ui/card'
+import { useConvexAuth } from '@/hooks/useConvexAuth'
 import { Search, Building2, Users, Globe, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -33,91 +30,116 @@ type Company = {
 }
 
 export default function Companies() {
-  const { profile } = useAuth()
+  const { user } = useConvexAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 25
 
-  const queryKey = useMemo(() => [
-    'companies',
-    { searchQuery, page, pageSize, clientId: profile?.client_id }
-  ], [searchQuery, page, pageSize, profile?.client_id])
-
-  const { data, isLoading, error } = useQuery({
-    queryKey,
-    queryFn: async () => {
-      const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-
-      let query = supabase
-        .from('companies')
-        .select('id,name,domain,website,industry_label,subindustry_label,city,state,country,company_size,created_at', { count: 'exact' })
-        .range(from, to)
-        .order('name')
-
-      if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,domain.ilike.%${searchQuery}%,industry_label.ilike.%${searchQuery}%`)
-      }
-
-      const { data: companies, error, count } = await query
-      if (error) throw error
-      
-      return { 
-        companies: (companies as Company[]) || [], 
-        total: count || 0 
-      }
+  // Mock companies data - replace with Convex queries when deployed
+  const mockCompanies: Company[] = [
+    {
+      id: '1',
+      name: 'Acme Corporation',
+      domain: 'acme.com',
+      website: 'https://acme.com',
+      industry_label: 'Technology',
+      subindustry_label: 'Software',
+      city: 'Amsterdam',
+      state: 'Noord-Holland',
+      country: 'Netherlands',
+      company_size: 150,
+      created_at: new Date().toISOString()
     },
-    enabled: !!profile?.client_id,
-    staleTime: 60_000,
-  })
-
-  const companies = data?.companies || []
-  const total = data?.total || 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-
-  // Quick stats
-  const { data: stats } = useQuery({
-    queryKey: ['companies-stats', profile?.client_id],
-    queryFn: async () => {
-      const { count: totalCompanies } = await supabase
-        .from('companies')
-        .select('*', { count: 'exact', head: true })
-
-      const { data: sizeDistribution } = await supabase
-        .from('companies')
-        .select('company_size')
-        .not('company_size', 'is', null)
-
-      const avgSize = sizeDistribution && sizeDistribution.length > 0 
-        ? Math.round(sizeDistribution.reduce((sum, c) => sum + (c.company_size || 0), 0) / sizeDistribution.length)
-        : 0
-
-      return {
-        totalCompanies: totalCompanies || 0,
-        avgSize,
-      }
+    {
+      id: '2',
+      name: 'Tech Solutions BV',
+      domain: 'techsolutions.nl',
+      website: 'https://techsolutions.nl',
+      industry_label: 'Technology',
+      subindustry_label: 'Consulting',
+      city: 'Rotterdam',
+      state: 'Zuid-Holland',
+      country: 'Netherlands',
+      company_size: 75,
+      created_at: new Date().toISOString()
     },
-    enabled: !!profile?.client_id,
-    staleTime: 300_000, // 5 minutes
-  })
+    {
+      id: '3',
+      name: 'Digital Commerce Ltd',
+      domain: 'digitalcommerce.com',
+      website: 'https://digitalcommerce.com',
+      industry_label: 'E-commerce',
+      subindustry_label: 'Retail',
+      city: 'Utrecht',
+      state: 'Utrecht',
+      country: 'Netherlands',
+      company_size: 200,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: '4',
+      name: 'Buildrs Technologies',
+      domain: 'buildrs.tech',
+      website: 'https://buildrs.tech',
+      industry_label: 'Technology',
+      subindustry_label: 'CRM Software',
+      city: 'Eindhoven',
+      state: 'Noord-Brabant',
+      country: 'Netherlands',
+      company_size: 50,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: '5',
+      name: 'Green Energy Solutions',
+      domain: 'greenenergy.nl',
+      website: 'https://greenenergy.nl',
+      industry_label: 'Energy',
+      subindustry_label: 'Renewable Energy',
+      city: 'Den Haag',
+      state: 'Zuid-Holland',
+      country: 'Netherlands',
+      company_size: 120,
+      created_at: new Date().toISOString()
+    }
+  ]
+
+  // Filter companies based on search
+  const filteredCompanies = mockCompanies.filter(company => 
+    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.industry_label.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const companies = filteredCompanies
+  const total = filteredCompanies.length
+  const totalPages = Math.ceil(total / pageSize)
+  const isLoading = false
+  const error = null
+
+  // Mock stats
+  const stats = {
+    totalCompanies: mockCompanies.length,
+    avgSize: Math.round(mockCompanies.reduce((sum, c) => sum + c.company_size, 0) / mockCompanies.length)
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] overflow-hidden">
       {/* Header */}
       <div className="glass-surface backdrop-blur-xl bg-background/80 border-b border-border/50">
         <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <h1 className="text-2xl font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Bedrijven
-              </h1>
+          <div>
+            <h1 className="text-2xl font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Bedrijven
+            </h1>
             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
-                {(stats?.totalCompanies || 0).toLocaleString()} bedrijven
-                </div>
+                {stats.totalCompanies.toLocaleString()} bedrijven
+              </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Ø {(stats?.avgSize || 0).toLocaleString()} werknemers
+                Ø {stats.avgSize.toLocaleString()} werknemers
               </div>
             </div>
           </div>
@@ -149,9 +171,9 @@ export default function Companies() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Totaal</p>
-                  <p className="text-xl font-semibold">{(stats?.totalCompanies || 0).toLocaleString()}</p>
-        </div>
-      </div>
+                  <p className="text-xl font-semibold">{stats.totalCompanies.toLocaleString()}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
           
@@ -163,7 +185,7 @@ export default function Companies() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Gem. grootte</p>
-                  <p className="text-xl font-semibold">{(stats?.avgSize || 0).toLocaleString()}</p>
+                  <p className="text-xl font-semibold">{stats.avgSize.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -179,7 +201,7 @@ export default function Companies() {
                   <p className="text-sm text-muted-foreground">Resultaten</p>
                   <p className="text-xl font-semibold">{companies.length}</p>
                 </div>
-        </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -240,11 +262,13 @@ export default function Companies() {
                       <div className="flex items-center gap-3 w-[260px]">
                         <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-xs font-medium">
                           {company.domain ? (
-                            <img src={`https://logo.clearbit.com/${company.domain}`} alt="logo" className="h-full w-full object-cover" />
-                          ) : (
-                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                          )}
-                          </div>
+                            <img src={`https://logo.clearbit.com/${company.domain}`} alt="logo" className="h-full w-full object-cover" onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                            }} />
+                          ) : null}
+                          <Building2 className="w-4 h-4 text-muted-foreground" style={{ display: company.domain ? 'none' : 'flex' }} />
+                        </div>
                         <div className="min-w-0 flex-1">
                           <Link to={`/accounts/${company.id}`} className="font-medium text-foreground truncate text-sm hover:underline">
                             {company.name}
@@ -264,11 +288,11 @@ export default function Companies() {
                     <TableCell className="text-center">
                       {company.company_size ? (
                         <Badge variant="secondary" className="font-mono">
-                            {company.company_size.toLocaleString()}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                          {company.company_size.toLocaleString()}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-foreground/80 truncate max-w-[220px]">
@@ -310,7 +334,7 @@ export default function Companies() {
 
       {/* Pagination */}
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between text-sm">
-          <div className="text-muted-foreground font-medium">
+        <div className="text-muted-foreground font-medium">
           {Math.min((page - 1) * pageSize + (companies.length ? 1 : 0), total)}–{Math.min(page * pageSize, total)} van {total.toLocaleString()}
         </div>
         <div className="flex items-center gap-2">

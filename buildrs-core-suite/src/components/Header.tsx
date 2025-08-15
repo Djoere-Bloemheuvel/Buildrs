@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ThemeSelector } from '@/components/ThemeSelector';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 import { toast } from 'sonner';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -13,11 +13,10 @@ interface HeaderProps {
 }
 
 export const Header = ({ onSidebarOpen }: HeaderProps) => {
-  const {
-    user,
-    profile,
-    signOut
-  } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile and signOut for development
+  const profile = { name: 'Test User', email: 'test@example.com' };
+  const signOut = async () => ({ error: null });
   
   const handleSignOut = async () => {
     const {

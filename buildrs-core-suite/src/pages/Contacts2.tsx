@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import { Search, Plus, Filter, Download, MoreHorizontal, User, Building2, Phone, Mail, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 import { fetchEnrichedContacts } from '@/data/crm';
 
 // Minimal type for the enriched view rows we render in this table
@@ -83,7 +83,9 @@ function getStatusColor(status: string) {
 export default function Contacts2Page() {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { profile } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile data
+  const profile = { client_id: 'client-1' };
 
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(25);

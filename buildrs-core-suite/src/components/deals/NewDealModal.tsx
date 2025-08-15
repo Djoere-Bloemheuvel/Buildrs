@@ -9,8 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/hooks/useAuth'
-import { createDeal, fetchCompanies, fetchContacts, fetchStagesByPipeline } from '@/data/crm'
+import { useConvexAuth } from '@/hooks/useConvexAuth'
+// Temporarily mock these functions until Convex is available
+const createDeal = async (data: any) => ({ id: Date.now().toString(), ...data });
+const fetchCompanies = async () => [{ id: '1', name: 'Acme Corp' }, { id: '2', name: 'Tech Solutions' }];
+const fetchContacts = async () => [{ id: '1', first_name: 'John', last_name: 'Doe' }, { id: '2', first_name: 'Jane', last_name: 'Smith' }];
+const fetchStagesByPipeline = async () => [{ id: '1', name: 'Prospect' }, { id: '2', name: 'Qualified' }];
 import { Building2, Contact, Euro, Percent, Target, FileText, Sparkles } from 'lucide-react'
 
 type Pipeline = { id: string; name: string }
@@ -28,7 +32,9 @@ export default function NewDealModal({
   activePipeline: string | null
   onCreated: (pipelineId?: string) => void
 }) {
-  const { profile } = useAuth()
+  const { user } = useConvexAuth()
+  // Mock profile data until Convex is available
+  const profile = { id: 'user-1', client_id: 'client-1', role: 'admin' }
   const { toast } = useToast()
   const qc = useQueryClient()
 

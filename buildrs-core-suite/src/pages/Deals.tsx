@@ -10,14 +10,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import NewDealModal from '@/components/deals/NewDealModal';
 import NewPipelineModal from '@/components/deals/NewPipelineModal';
 import { useToast } from '@/hooks/use-toast';
-import {
-  fetchDealsByPipeline,
-  fetchPipelines,
-  fetchStagesByPipeline,
-  moveDealToStage,
-} from '@/data/crm';
+// Mock CRM functions until Convex is available
+const fetchPipelines = async () => [
+  { id: '1', name: 'Sales Pipeline NL', is_default: true },
+  { id: '2', name: 'Enterprise Sales', is_default: false }
+];
+
+const fetchStagesByPipeline = async (pipelineId: string) => [
+  { id: 'stage-1', name: 'Prospect', position: 1, pipeline_id: pipelineId, default_probability: 10 },
+  { id: 'stage-2', name: 'Qualified', position: 2, pipeline_id: pipelineId, default_probability: 30 },
+  { id: 'stage-3', name: 'Proposal', position: 3, pipeline_id: pipelineId, default_probability: 60 },
+  { id: 'stage-4', name: 'Negotiation', position: 4, pipeline_id: pipelineId, default_probability: 80 },
+  { id: 'stage-5', name: 'Won', position: 5, pipeline_id: pipelineId, default_probability: 95 }
+];
+
+const fetchDealsByPipeline = async (pipelineId: string) => [
+  {
+    id: 'deal-1',
+    title: 'Website redesign voor Acme Corp',
+    value: 25000,
+    currency: 'EUR',
+    status: 'open',
+    stage_id: 'stage-1',
+    confidence: 25,
+    companies: { name: 'Acme Corporation' }
+  },
+  {
+    id: 'deal-2',
+    title: 'CRM implementatie Tech Solutions',
+    value: 50000,
+    currency: 'EUR',
+    status: 'open',
+    stage_id: 'stage-2',
+    confidence: 40,
+    companies: { name: 'Tech Solutions BV' }
+  },
+  {
+    id: 'deal-3',
+    title: 'E-commerce platform upgrade',
+    value: 75000,
+    currency: 'EUR',
+    status: 'open',
+    stage_id: 'stage-3',
+    confidence: 65,
+    companies: { name: 'Digital Commerce Ltd' }
+  }
+];
+
+const moveDealToStage = async (dealId: string, stageId: string, confidence?: number) => {
+  console.log(`Moving deal ${dealId} to stage ${stageId} with confidence ${confidence}%`);
+  return { success: true };
+};
 import { currencyFormatter } from '@/utils';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 import { useNavigate } from 'react-router-dom';
 
 interface Deal {
@@ -58,7 +103,9 @@ const Deals = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { profile } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile data until Convex is available
+  const profile = { id: 'user-1', client_id: 'client-1', role: 'admin' };
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();

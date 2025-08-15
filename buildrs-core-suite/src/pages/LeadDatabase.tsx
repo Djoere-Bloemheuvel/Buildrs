@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import { Search, Download, ChevronLeft, ChevronRight, Building2, Mail, MapPin, ChevronRight as ChevronRightIcon, Filter, Star, Menu, Users, Briefcase, Globe, Plus, RotateCcw, Archive } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -33,7 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MultiSelect, MultiOption } from '@/components/ui/MultiSelect';
 import { Slider } from '@/components/ui/slider';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
 import { fetchEnrichedContacts, fetchFilterOptions } from '@/data/crm';
 
 // Same type as Contacts page
@@ -86,7 +86,9 @@ function getStatusColor(status: string) {
 
 export default function LeadDatabase() {
   const [search, setSearch] = useState<string>('');
-  const { profile } = useAuth();
+  const { user } = useConvexAuth();
+  // Mock profile data
+  const profile = { client_id: 'client-1' };
 
   // Filter states
   const [selectedFunctionGroups, setSelectedFunctionGroups] = useState<string[]>([]);

@@ -27,7 +27,6 @@ import LeadLinkedIn from '@/pages/LeadLinkedIn';
 import LinkedInCampaignEditor from '@/pages/LinkedInCampaignEditor';
 import LeadEmail from '@/pages/LeadEmail';
 import EmailCampaignEditor from '@/pages/EmailCampaignEditor';
-import TestPage from '@/pages/TestPage';
 import './App.css';
 
 function App() {
@@ -61,7 +60,6 @@ function App() {
             <Route path="/lead-engine/linkedin/:campaignId" element={<LinkedInCampaignEditor />} />
             <Route path="/lead-engine/email" element={<LeadEmail />} />
             <Route path="/lead-engine/email/:campaignId" element={<EmailCampaignEditor />} />
-            <Route path="/test" element={<TestPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </Layout>

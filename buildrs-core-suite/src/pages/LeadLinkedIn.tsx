@@ -1,8 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/integrations/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
+import { useConvexAuth } from '@/hooks/useConvexAuth'
 import { useToast } from '@/hooks/use-toast'
 import PropositionSelect from '@/components/lead/PropositionSelect'
 import { Button } from '@/components/ui/button'
@@ -18,7 +16,9 @@ import LinkedInStatsGrid from '@/components/linkedin/LinkedInStatsGrid'
 import { MultiSelect, type MultiOption } from '@/components/ui/MultiSelect'
 
 export default function LeadLinkedIn() {
-  const { profile } = useAuth()
+  const { user } = useConvexAuth()
+  // Mock profile data
+  const profile = { client_id: 'client-1' }
   const { toast } = useToast()
   const navigate = useNavigate()
 
@@ -811,6 +811,8 @@ export default function LeadLinkedIn() {
         </Dialog>
       </div>
     </div>
+  </div>
+  </div>
   )
 }
 
