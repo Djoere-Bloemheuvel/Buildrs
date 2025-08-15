@@ -293,6 +293,183 @@ export const searchLeads = query({
   },
 });
 
+// Get enriched leads with company data (joined view)
+export const getLeadsWithCompany = query({
+  args: {
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+    functionGroups: v.optional(v.array(v.string())),
+    countries: v.optional(v.array(v.string())),
+    industries: v.optional(v.array(v.string())),
+    searchTerm: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  returns: v.array(v.object({
+    // Lead data
+    leadId: v.id("leads"),
+    leadCreatedAt: v.number(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.string(),
+    mobilePhone: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    seniority: v.optional(v.string()),
+    functionGroup: v.optional(v.string()),
+    country: v.optional(v.string()),
+    state: v.optional(v.string()),
+    city: v.optional(v.string()),
+    sourceType: v.optional(v.string()),
+    addedAt: v.optional(v.number()),
+    lastUpdatedAt: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
+    
+    // Company data (joined)
+    companyId: v.optional(v.id("companies")),
+    companyName: v.optional(v.string()),
+    companyDomain: v.optional(v.string()),
+    companyWebsite: v.optional(v.string()),
+    companyIndustry: v.optional(v.string()),
+    companySubindustry: v.optional(v.string()),
+    companySize: v.optional(v.number()),
+    companyCountry: v.optional(v.string()),
+    companyCity: v.optional(v.string()),
+    companyPhone: v.optional(v.string()),
+    companyLinkedinUrl: v.optional(v.string()),
+    companySummary: v.optional(v.string()),
+    companyTechnologies: v.optional(v.array(v.string())),
+    fullEnrichment: v.optional(v.boolean()),
+  })),
+  handler: async (ctx, { 
+    limit = 50, 
+    offset = 0,
+    functionGroups, 
+    countries, 
+    industries, 
+    searchTerm, 
+    isActive = true 
+  }) => {
+    // Get leads with pagination
+    let leadsQuery = ctx.db.query("leads");
+    
+    // Filter by active status
+    if (isActive !== undefined) {
+      leadsQuery = leadsQuery.filter((q) => q.eq(q.field("isActive"), isActive));
+    }
+    
+    // Apply search term filter at database level if possible
+    let leads = await leadsQuery
+      .order("desc")
+      .take(limit + offset); // Take more to account for filtering
+    
+    // Apply offset after taking
+    leads = leads.slice(offset);
+    
+    // Apply filters
+    if (functionGroups && functionGroups.length > 0) {
+      leads = leads.filter(lead => 
+        lead.functionGroup && functionGroups.includes(lead.functionGroup)
+      );
+    }
+    
+    if (countries && countries.length > 0) {
+      leads = leads.filter(lead => 
+        lead.country && countries.includes(lead.country)
+      );
+    }
+    
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      leads = leads.filter(lead => 
+        (lead.firstName?.toLowerCase().includes(term)) ||
+        (lead.lastName?.toLowerCase().includes(term)) ||
+        (lead.email?.toLowerCase().includes(term)) ||
+        (lead.jobTitle?.toLowerCase().includes(term))
+      );
+    }
+    
+    // Take final limit after filtering
+    leads = leads.slice(0, limit);
+    
+    // Join with company data
+    const enrichedLeads = await Promise.all(
+      leads.map(async (lead) => {
+        let companyData = {
+          companyId: undefined as any,
+          companyName: undefined,
+          companyDomain: undefined,
+          companyWebsite: undefined,
+          companyIndustry: undefined,
+          companySubindustry: undefined,
+          companySize: undefined,
+          companyCountry: undefined,
+          companyCity: undefined,
+          companyPhone: undefined,
+          companyLinkedinUrl: undefined,
+          companySummary: undefined,
+          companyTechnologies: undefined,
+          fullEnrichment: undefined,
+        };
+        
+        if (lead.companyId) {
+          const company = await ctx.db.get(lead.companyId);
+          if (company) {
+            companyData = {
+              companyId: company._id,
+              companyName: company.name,
+              companyDomain: company.domain,
+              companyWebsite: company.website,
+              companyIndustry: company.industryLabel,
+              companySubindustry: company.subindustryLabel,
+              companySize: company.companySize,
+              companyCountry: company.country,
+              companyCity: company.city,
+              companyPhone: company.companyPhone,
+              companyLinkedinUrl: company.companyLinkedinUrl,
+              companySummary: company.companySummary,
+              companyTechnologies: company.companyTechnologies,
+              fullEnrichment: company.fullEnrichment,
+            };
+          }
+        }
+        
+        return {
+          // Lead data
+          leadId: lead._id,
+          leadCreatedAt: lead._creationTime,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: lead.email,
+          mobilePhone: lead.mobilePhone,
+          linkedinUrl: lead.linkedinUrl,
+          jobTitle: lead.jobTitle,
+          seniority: lead.seniority,
+          functionGroup: lead.functionGroup,
+          country: lead.country,
+          state: lead.state,
+          city: lead.city,
+          sourceType: lead.sourceType,
+          addedAt: lead.addedAt,
+          lastUpdatedAt: lead.lastUpdatedAt,
+          isActive: lead.isActive,
+          
+          // Company data (joined)
+          ...companyData,
+        };
+      })
+    );
+    
+    // Filter by industries if specified (after company join)
+    if (industries && industries.length > 0) {
+      return enrichedLeads.filter(lead => 
+        lead.companyIndustry && industries.includes(lead.companyIndustry)
+      );
+    }
+    
+    return enrichedLeads;
+  },
+});
+
 // Get lead by ID (public access)
 export const getLead = query({
   args: { leadId: v.id("leads") },

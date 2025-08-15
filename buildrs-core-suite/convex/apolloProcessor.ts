@@ -435,17 +435,9 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
   // Website is already validated in strict filtering above
   const websiteValid = true; // We know it's valid because we passed the filter
   
-  // 4. 📋 KEYWORD-BASED FUNCTION GROUP CLASSIFICATION
+  // 4. 📋 FUNCTION GROUP - LEAVE EMPTY
   let functionGroup = undefined;
-  if (contactData.jobTitle) {
-    console.log(`📋 Classifying function group for job title: ${contactData.jobTitle}`);
-    functionGroup = classifyFunctionGroupKeywords(contactData.jobTitle);
-    console.log(`✅ Classified "${contactData.jobTitle}" as: ${functionGroup}`);
-  } else {
-    // No job title - use default
-    functionGroup = "Operational Decision Makers";
-    console.log(`⚠️ No job title provided, using default: ${functionGroup}`);
-  }
+  console.log(`📋 Function group left empty for manual classification later`);
   
   // 5. Check/create company - SMART EMAIL DOMAIN LINKING
   let companyId = undefined;
@@ -1701,83 +1693,7 @@ async function validateWebsite(url: string): Promise<boolean> {
   return result.valid;
 }
 
-// EFFICIËNTE KEYWORD-BASED CLASSIFICATIE (geen API calls)
-function classifyFunctionGroupKeywords(jobTitle: string): string {
-  const title = jobTitle.toLowerCase();
-  
-  // Owner/Founder keywords
-  if (title.includes('founder') || title.includes('owner') || title.includes('ceo') || 
-      title.includes('oprichter') || title.includes('eigenaar') || title.includes('director')) {
-    return "Owner/Founder";
-  }
-  
-  // Marketing keywords
-  if (title.includes('marketing') || title.includes('cmo') || title.includes('brand') ||
-      title.includes('communication') || title.includes('pr ') || title.includes('content')) {
-    return "Marketing Decision Makers";
-  }
-  
-  // Sales keywords  
-  if (title.includes('sales') || title.includes('account') || title.includes('business development') ||
-      title.includes('bd ') || title.includes('verkoop') || title.includes('commercial')) {
-    return "Sales Decision Makers";
-  }
-  
-  // Technical keywords
-  if (title.includes('cto') || title.includes('developer') || title.includes('engineer') ||
-      title.includes('tech') || title.includes('software') || title.includes('it ') ||
-      title.includes('product manager') || title.includes('lead dev')) {
-    return "Technical Decision Makers";
-  }
-  
-  // Financial keywords
-  if (title.includes('cfo') || title.includes('finance') || title.includes('accounting') ||
-      title.includes('controller') || title.includes('treasurer')) {
-    return "Financial Decision Makers";
-  }
-  
-  // HR keywords
-  if (title.includes('hr') || title.includes('people') || title.includes('human resources') ||
-      title.includes('talent') || title.includes('recruitment')) {
-    return "HR Decision Makers";
-  }
-  
-  // Operations keywords
-  if (title.includes('operations') || title.includes('coo') || title.includes('logistics') ||
-      title.includes('supply') || title.includes('process')) {
-    return "Operational Decision Makers";
-  }
-  
-  // Product keywords
-  if (title.includes('product') || title.includes('innovation') || title.includes('development') ||
-      title.includes('design') || title.includes('ux') || title.includes('ui')) {
-    return "Product & Innovation Decision Makers";
-  }
-  
-  // Customer Success keywords
-  if (title.includes('customer') || title.includes('support') || title.includes('success') ||
-      title.includes('service') || title.includes('client relations')) {
-    return "Customer Success & Support Decision Makers";
-  }
-  
-  // Default fallback
-  return "Marketing Decision Makers";
-}
-
-// BATCH KEYWORD CLASSIFICATION - Process multiple job titles at once
-function classifyFunctionGroupsBatch(jobTitles: string[]): string[] {
-  console.log(`📋 Processing ${jobTitles.length} job titles with keyword-based classification...`);
-  
-  const results = jobTitles.map(title => classifyFunctionGroupKeywords(title));
-  
-  console.log(`✅ Classified ${results.length} job titles successfully`);
-  return results;
-}
-
-// SINGLE CLASSIFICATION - Simple wrapper for keyword-based classification
-function classifyFunctionGroup(jobTitle: string): string {
-  return classifyFunctionGroupKeywords(jobTitle);
-}
+// Function group classification removed - fields left empty for manual classification
 
 
 // Database helper queries  
