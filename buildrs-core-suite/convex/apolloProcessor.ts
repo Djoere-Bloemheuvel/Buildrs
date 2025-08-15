@@ -473,10 +473,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
       companyCreated = true;
       console.log(`🏢 Created new company via email domain: ${emailDomain}`);
       
-      // 🚀 TRIGGER COMPANY ENRICHMENT (async, don't wait)
-      if (emailDomain) {
-        triggerCompanyEnrichment(ctx, companyId, emailDomain);
-      }
+      // Company enrichment disabled - no external API calls
     }
   }
   // STAP 2: Fallback via scraped domain (als anders dan email domain)
@@ -507,10 +504,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
       companyCreated = true;
       console.log(`🏢 Created new company via scraped domain: ${companyData.domain}`);
       
-      // 🚀 TRIGGER COMPANY ENRICHMENT (async, don't wait)
-      if (companyData.domain) {
-        triggerCompanyEnrichment(ctx, companyId, companyData.domain);
-      }
+      // Company enrichment disabled - no external API calls
     }
   }
   // STAP 3: Laatste fallback - company name only (zeer onbetrouwbaar)
@@ -1957,22 +1951,4 @@ export const createLead = mutation({
   },
 });
 
-// 🚀 COMPANY ENRICHMENT TRIGGER (async, non-blocking)
-async function triggerCompanyEnrichment(ctx: any, companyId: any, domain: string) {
-  try {
-    console.log(`🚀 Triggering enrichment for company ${companyId} with domain ${domain}`);
-    
-    // Fire-and-forget enrichment (don't await to avoid blocking)
-    ctx.runAction(internal.companyEnrichment.enrichCompany, {
-      companyId,
-      domain,
-    }).catch((error: any) => {
-      console.error(`❌ Background enrichment failed for ${companyId}:`, error);
-    });
-    
-    console.log(`📅 Enrichment triggered for company ${companyId}`);
-  } catch (error) {
-    console.error(`❌ Failed to trigger enrichment for company ${companyId}:`, error);
-    // Don't throw - enrichment failure shouldn't break contact creation
-  }
-}
+// Company enrichment functions removed - no external API calls
