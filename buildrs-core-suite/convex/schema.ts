@@ -83,6 +83,37 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   // ===============================
+  // PUBLIC LEADS DATABASE
+  // ===============================
+  
+  leads: defineTable({
+    companyId: v.optional(v.id("companies")),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    mobilePhone: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    seniority: v.optional(v.string()),
+    functionGroup: v.optional(v.string()),
+    country: v.optional(v.string()),
+    state: v.optional(v.string()),
+    city: v.optional(v.string()),
+    // Metadata voor openbare database
+    addedAt: v.optional(v.number()),
+    lastUpdatedAt: v.optional(v.number()),
+    sourceType: v.optional(v.string()), // 'apollo', 'manual', 'import', etc.
+    isActive: v.optional(v.boolean()), // Voor soft deletes
+    originalContactId: v.optional(v.id("contacts")), // Referentie naar originele contact voor tracking
+  }).index("by_company", ["companyId"])
+    .index("by_email", ["email"])
+    .index("by_function_group", ["functionGroup"])
+    .index("by_country", ["country"])
+    .index("by_source", ["sourceType"])
+    .index("by_active", ["isActive"])
+    .index("by_original_contact", ["originalContactId"]),
+
+  // ===============================
   // PROPOSITIONS & CAMPAIGNS
   // ===============================
 

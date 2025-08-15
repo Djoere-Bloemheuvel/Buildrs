@@ -22,6 +22,7 @@ import type * as companyEnrichment from "../companyEnrichment.js";
 import type * as contacts from "../contacts.js";
 import type * as deals from "../deals.js";
 import type * as leadDatabase from "../leadDatabase.js";
+import type * as leads from "../leads.js";
 import type * as migrations from "../migrations.js";
 import type * as quickMigration from "../quickMigration.js";
 import type * as searchViews from "../searchViews.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   deals: typeof deals;
   leadDatabase: typeof leadDatabase;
+  leads: typeof leads;
   migrations: typeof migrations;
   quickMigration: typeof quickMigration;
   searchViews: typeof searchViews;

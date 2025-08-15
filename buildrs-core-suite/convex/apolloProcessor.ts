@@ -104,24 +104,13 @@ export const processApolloData = action({
       console.log(`🔄 Batch ${batchNum}/${totalBatches} (${progressPercent}%) - Processing ${batch.length} entries`);
       console.log(`📊 Current stats: ${contactsCreated} created, ${duplicatesSkipped} duplicates, ${filteredOut} filtered`);
       
-      // Extract job titles for OpenAI batch classification
-      const jobTitles = batch.map(entry => ({
-        index: i + batch.indexOf(entry),
-        jobTitle: entry.title || entry.job_title || entry.position || entry.role || 
-                 entry.job_position || entry.occupation || entry.designation || 
-                 entry.current_title || entry.professional_title || "Professional"
-      }));
-      
-      // Get function groups for this batch via OpenAI
-      const functionGroups = await classifyFunctionGroupsBatch(jobTitles.map(jt => jt.jobTitle));
-      
-      // 8. 🔧 ERROR RECOVERY - Process each entry with retry logic
+      // 8. 🔧 ERROR RECOVERY - Process each entry with individual ChatGPT calls
       for (let j = 0; j < batch.length; j++) {
         const entry = batch[j];
-        const functionGroup = functionGroups[j]; // Use OpenAI result
         
         try {
-          const processedContact = await processApolloEntry(ctx, entry, clientId, functionGroup);
+          // Elke contact krijgt individuele ChatGPT classificatie binnen processApolloEntry
+          const processedContact = await processApolloEntry(ctx, entry, clientId);
           
           if (processedContact.action === 'created') {
             contactsCreated++;
@@ -139,7 +128,6 @@ export const processApolloData = action({
           console.error(`❌ Failed entry in batch ${batchNum}:`, error);
           failedEntries.push({
             entry, 
-            functionGroup,
             error: error instanceof Error ? error.message : 'Unknown error',
             batchNum
           });
@@ -158,9 +146,9 @@ export const processApolloData = action({
       console.log(`🔄 Retrying ${failedEntries.length} failed entries...`);
       let retriedSuccessfully = 0;
       
-      for (const {entry, functionGroup, error: originalError} of failedEntries) {
+      for (const {entry, error: originalError} of failedEntries) {
         try {
-          const processedContact = await processApolloEntry(ctx, entry, clientId, functionGroup);
+          const processedContact = await processApolloEntry(ctx, entry, clientId);
           
           if (processedContact.action === 'created') {
             contactsCreated++;
@@ -201,7 +189,7 @@ export const processApolloData = action({
 });
 
 // Process individual Apollo entry
-async function processApolloEntry(ctx: any, entry: any, clientId: string, preClassifiedFunctionGroup?: string) {
+async function processApolloEntry(ctx: any, entry: any, clientId: string) {
   console.log("📥 Raw entry keys:", Object.keys(entry));
   console.log("📥 Raw entry data:", JSON.stringify(entry, null, 2));
   
@@ -369,6 +357,14 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
       org.city || org.locality || org.company_city || org.location_city ||
       org.headquarters_city || entry.company_city, 'city'
     ),
+    
+    // Technologies - probeer alle varianten en parse correct
+    companyTechnologies: parseCompanyTechnologies(
+      org.technologies || org.tech_stack || org.technology_stack || 
+      org.company_technologies || org.tools || org.software || org.platforms ||
+      entry.technologies || entry.tech_stack || entry.technology_stack ||
+      entry.company_technologies || entry.tools || entry.software
+    ),
   };
   
   // INTELLIGENTE COMPANY FALLBACKS met juiste info
@@ -439,11 +435,25 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
   // Website is already validated in strict filtering above
   const websiteValid = true; // We know it's valid because we passed the filter
   
-  // 4. Use pre-classified function group from OpenAI batch or fallback to keywords
-  let functionGroup = preClassifiedFunctionGroup;
-  if (!functionGroup && contactData.jobTitle) {
-    // Fallback to keyword-based classification if OpenAI batch failed
-    functionGroup = classifyFunctionGroupKeywords(contactData.jobTitle);
+  // 4. 🤖 GPT-5-MINI FUNCTION GROUP CLASSIFICATION per lead
+  let functionGroup = undefined;
+  if (contactData.jobTitle) {
+    console.log(`🤖 Classifying function group for job title: ${contactData.jobTitle}`);
+    
+    try {
+      // Use GPT-5-mini for each individual lead's job title
+      functionGroup = await classifyFunctionGroup(contactData.jobTitle);
+      console.log(`✅ GPT-5-mini classified "${contactData.jobTitle}" as: ${functionGroup}`);
+    } catch (error) {
+      console.error(`❌ GPT-5-mini classification failed for "${contactData.jobTitle}":`, error);
+      // NO FALLBACK - AI output velden blijven leeg als ChatGPT faalt
+      functionGroup = undefined;
+      console.log(`⚠️ Function group blijft leeg - alleen ChatGPT mag dit vullen`);
+    }
+  } else {
+    // No job title - leave undefined (AI output velden blijven leeg)
+    functionGroup = undefined;
+    console.log(`⚠️ No job title provided, function group blijft leeg`);
   }
   
   // 5. Check/create company - SMART EMAIL DOMAIN LINKING
@@ -471,6 +481,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
         scrapedIndustry: companyData.scrapedIndustry,
         companySize: companyData.companySize,
         companyPhone: companyData.companyPhone,
+        companyTechnologies: companyData.companyTechnologies,
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
@@ -504,6 +515,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
         scrapedIndustry: companyData.scrapedIndustry,
         companySize: companyData.companySize,
         companyPhone: companyData.companyPhone,
+        companyTechnologies: companyData.companyTechnologies,
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
@@ -537,6 +549,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
         scrapedIndustry: companyData.scrapedIndustry,
         companySize: companyData.companySize,
         companyPhone: companyData.companyPhone,
+        companyTechnologies: companyData.companyTechnologies,
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
@@ -571,6 +584,32 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string, preCla
     isLinkedinConnected: false,
     optedIn: false, // Default naar false
   });
+  
+  // 7. 📊 KOPIEER CONTACT NAAR OPENBARE LEADS DATABASE
+  console.log("📊 Adding contact to public leads database...");
+  try {
+    await ctx.runMutation(internal.apolloProcessor.createLead, {
+      companyId: companyId,
+      firstName: contactData.firstName,
+      lastName: contactData.lastName,
+      email: contactData.email,
+      mobilePhone: contactData.mobilePhone,
+      linkedinUrl: contactData.linkedinUrl,
+      jobTitle: contactData.jobTitle,
+      seniority: contactData.seniority,
+      functionGroup: functionGroup,
+      country: contactData.country,
+      state: contactData.state,
+      city: contactData.city,
+      originalContactId: contactId,
+      sourceType: "apollo",
+      isActive: true,
+    });
+    console.log("✅ Contact added to public leads database");
+  } catch (error) {
+    console.error("❌ Failed to add contact to leads database:", error);
+    // Don't fail the whole process if leads creation fails
+  }
   
   return { 
     action: 'created', 
@@ -1431,6 +1470,40 @@ function parseNumber(value: any): number | undefined {
   return !isNaN(num) ? num : undefined;
 }
 
+// PARSE COMPANY TECHNOLOGIES - handle different input formats
+function parseCompanyTechnologies(technologies: any): string[] | undefined {
+  if (!technologies) return undefined;
+  
+  // Als het al een array is
+  if (Array.isArray(technologies)) {
+    return technologies
+      .map(tech => sanitizeString(tech))
+      .filter(tech => tech && tech.length > 0) as string[];
+  }
+  
+  // Als het een object is (bijv. {react: true, nodejs: false})
+  if (typeof technologies === 'object' && technologies !== null) {
+    const techArray = Object.entries(technologies)
+      .filter(([key, value]) => value === true || value === 'true' || value === 1)
+      .map(([key]) => sanitizeString(key))
+      .filter(tech => tech && tech.length > 0) as string[];
+    
+    return techArray.length > 0 ? techArray : undefined;
+  }
+  
+  // Als het een string is (bijv. "React, Node.js, PostgreSQL")
+  if (typeof technologies === 'string') {
+    const techArray = technologies
+      .split(/[,;|\n]/) // Split op komma's, puntkomma's, pipes of newlines
+      .map(tech => sanitizeString(tech?.trim()))
+      .filter(tech => tech && tech.length > 1) as string[]; // Filter te korte strings
+    
+    return techArray.length > 0 ? techArray : undefined;
+  }
+  
+  return undefined;
+}
+
 function normalizePhone(raw: any): string | undefined {
   if (!raw) return undefined;
   
@@ -1713,16 +1786,16 @@ async function classifyFunctionGroupsBatch(jobTitles: string[]): Promise<string[
   
   const prompt = `De volgende functiegroepen zijn gedefinieerd:
 
-1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf
-2. **Marketing Decision Makers**: CMO's, Marketing Managers, etc.
-3. **Sales Decision Makers**: Sales Directors, Account Executives, etc.
-4. **Business Development Decision Makers**: BD Managers, Partnerships, etc.
-5. **Operational Decision Makers**: COO's, Operations Managers, etc.
-6. **Technical Decision Makers**: CTO's, Product Managers, Lead Developers
-7. **Financial Decision Makers**: CFO's, Controllers, etc.
-8. **HR Decision Makers**: HR Managers, People Operations, etc.
-9. **Product & Innovation Decision Makers**: Product Development, Innovation
-10. **Customer Success & Support Decision Makers**: CS Managers, Support
+1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf. Deze rol is meestal verantwoordelijk voor de strategische richting van het bedrijf.
+2. **Marketing Decision Makers**: Personen die verantwoordelijk zijn voor marketingstrategie, campagnes en merkontwikkeling. Denk aan CMO's, Marketing Managers, enz.
+3. **Sales Decision Makers**: Personen die de verkoopstrategie, verkoopteams en klantrelaties beheren. Dit omvat Sales Directors, Account Executives, enzovoort.
+4. **Business Development Decision Makers**: Leiders binnen business development en strategische groei, zoals Business Development Managers, Partnerships Managers, enz.
+5. **Operational Decision Makers**: Personen die verantwoordelijk zijn voor de dagelijkse bedrijfsvoering, zoals COO's, Operations Managers, Supply Chain Managers, enz.
+6. **Technical Decision Makers**: Personen die de technische richting van het bedrijf bepalen, zoals CTO's, product managers, of lead developers.
+7. **Financial Decision Makers**: Personen die verantwoordelijk zijn voor de financiële gezondheid van het bedrijf, zoals CFO's en Controllers.
+8. **HR Decision Makers**: Personen die verantwoordelijk zijn voor personeelsbeleid, recruitment en organisatiecultuur, zoals HR Managers, People Operations Managers, enz.
+9. **Product & Innovation Decision Makers**: Personen die verantwoordelijk zijn voor productontwikkeling en innovatie binnen het bedrijf.
+10. **Customer Success & Support Decision Makers**: Personen die klanttevredenheid en -ondersteuning beheren, zoals Customer Success Managers, Support Managers, enz.
 
 Classificeer de volgende functietitels naar de best passende groep. Geef voor elke titel ALLEEN de functiegroep naam terug (geen uitleg). Een regel per titel.
 
@@ -1814,20 +1887,21 @@ async function classifyFunctionGroup(jobTitle: string): Promise<string> {
   
   const prompt = `De volgende functiegroepen zijn gedefinieerd:
 
-1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf
-2. **Marketing Decision Makers**: CMO's, Marketing Managers, etc.
-3. **Sales Decision Makers**: Sales Directors, Account Executives, etc.
-4. **Business Development Decision Makers**: BD Managers, Partnerships, etc.
-5. **Operational Decision Makers**: COO's, Operations Managers, etc.
-6. **Technical Decision Makers**: CTO's, Product Managers, Lead Developers
-7. **Financial Decision Makers**: CFO's, Controllers, etc.
-8. **HR Decision Makers**: HR Managers, People Operations, etc.
-9. **Product & Innovation Decision Makers**: Product Development, Innovation
-10. **Customer Success & Support Decision Makers**: CS Managers, Support
+1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf. Deze rol is meestal verantwoordelijk voor de strategische richting van het bedrijf.
+2. **Marketing Decision Makers**: Personen die verantwoordelijk zijn voor marketingstrategie, campagnes en merkontwikkeling. Denk aan CMO's, Marketing Managers, enz.
+3. **Sales Decision Makers**: Personen die de verkoopstrategie, verkoopteams en klantrelaties beheren. Dit omvat Sales Directors, Account Executives, enzovoort.
+4. **Business Development Decision Makers**: Leiders binnen business development en strategische groei, zoals Business Development Managers, Partnerships Managers, enz.
+5. **Operational Decision Makers**: Personen die verantwoordelijk zijn voor de dagelijkse bedrijfsvoering, zoals COO's, Operations Managers, Supply Chain Managers, enz.
+6. **Technical Decision Makers**: Personen die de technische richting van het bedrijf bepalen, zoals CTO's, product managers, of lead developers.
+7. **Financial Decision Makers**: Personen die verantwoordelijk zijn voor de financiële gezondheid van het bedrijf, zoals CFO's en Controllers.
+8. **HR Decision Makers**: Personen die verantwoordelijk zijn voor personeelsbeleid, recruitment en organisatiecultuur, zoals HR Managers, People Operations Managers, enz.
+9. **Product & Innovation Decision Makers**: Personen die verantwoordelijk zijn voor productontwikkeling en innovatie binnen het bedrijf.
+10. **Customer Success & Support Decision Makers**: Personen die klanttevredenheid en -ondersteuning beheren, zoals Customer Success Managers, Support Managers, enz.
 
-Functietitel: ${jobTitle}
+Dit is de functie titel "${jobTitle}"
 
-Kies de best passende groep. Geen uitleg. Geef alleen de functiegroep.`;
+---
+Kies altijd de **best passende** groep. Geen uitleg. Geen dubbele labels. Geef alleen de functiegroep.`;
 
   try {
     // Use OpenAI API for classification
@@ -1888,6 +1962,7 @@ Kies de best passende groep. Geen uitleg. Geef alleen de functiegroep.`;
   
   return "Marketing Decision Makers"; // Default fallback
 }
+
 
 // Database helper queries  
 export const checkContactExists = query({
@@ -1987,6 +2062,7 @@ export const createCompany = mutation({
     scrapedIndustry: v.optional(v.string()),
     companySize: v.optional(v.number()),
     companyPhone: v.optional(v.string()),
+    companyTechnologies: v.optional(v.array(v.string())),
     country: v.optional(v.string()),
     state: v.optional(v.string()),
     city: v.optional(v.string()),
@@ -2006,6 +2082,7 @@ export const createCompany = mutation({
       scrapedIndustry: companyData.scrapedIndustry,
       companySize: parsedCompanySize,
       companyPhone: companyData.companyPhone,
+      companyTechnologies: companyData.companyTechnologies,
       country: companyData.country,
       state: companyData.state,
       city: companyData.city,
@@ -2055,6 +2132,55 @@ export const createContact = mutation({
       optedIn: contactData.optedIn,
       companyId,
       clientId: clientId as any,
+    });
+  },
+});
+
+export const createLead = mutation({
+  args: {
+    companyId: v.optional(v.id("companies")),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    mobilePhone: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    seniority: v.optional(v.string()),
+    functionGroup: v.optional(v.string()),
+    country: v.optional(v.string()),
+    state: v.optional(v.string()),
+    city: v.optional(v.string()),
+    originalContactId: v.optional(v.id("contacts")),
+    sourceType: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  returns: v.id("leads"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Check for duplicates based on email (avoid duplicate leads)
+    if (args.email) {
+      const existingLead = await ctx.db
+        .query("leads")
+        .filter((q) => q.eq(q.field("email"), args.email))
+        .first();
+      
+      if (existingLead) {
+        console.log(`📊 Lead with email ${args.email} already exists, updating...`);
+        // Update existing lead with new data
+        await ctx.db.patch(existingLead._id, {
+          ...args,
+          lastUpdatedAt: now,
+        });
+        return existingLead._id;
+      }
+    }
+    
+    // Create new lead in public database
+    return await ctx.db.insert("leads", {
+      ...args,
+      addedAt: now,
+      lastUpdatedAt: now,
     });
   },
 });

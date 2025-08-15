@@ -164,21 +164,21 @@ export const enrichCompany = action({
   },
 });
 
-// Fallback enrichment when full enrichment fails
+// Fallback enrichment when full enrichment fails - NO AI FIELD FILLING
 async function performBasicEnrichment(ctx: any, companyId: any, domain: string) {
-  console.log("🔧 Attempting basic enrichment fallback...");
+  console.log("🔧 Basic enrichment - AI output velden blijven leeg");
   
   try {
-    // Basic industry guess from domain
-    const basicIndustry = guessIndustryFromDomain(domain);
-    
+    // NO basic industry guess - AI output velden moeten leeg blijven
+    // Alleen marking dat we hebben geprobeerd te enrichen
     await ctx.runMutation(internal.companyEnrichment.updateCompanyEnrichment, {
       companyId,
       enrichmentData: {
-        industrySlug: basicIndustry.slug,
-        industryLabel: basicIndustry.label,
-        subindustryLabel: basicIndustry.sublabel,
-        companyKeywords: basicIndustry.keywords,
+        // AI output velden blijven undefined - alleen ChatGPT vult deze in
+        industrySlug: undefined,
+        industryLabel: undefined,
+        subindustryLabel: undefined,
+        companyKeywords: undefined,
         companySummary: undefined,
         companyCommonProblems: undefined,
         companyTargetCustomers: undefined,
@@ -186,16 +186,11 @@ async function performBasicEnrichment(ctx: any, companyId: any, domain: string) 
       },
     });
     
-    console.log("✅ Basic enrichment completed");
+    console.log("✅ Basic enrichment completed - alle AI velden blijven leeg");
     return {
       success: true,
-      message: "Basic company enrichment completed (limited data)",
-      enrichmentData: {
-        industrySlug: basicIndustry.slug,
-        industryLabel: basicIndustry.label,
-        subindustryLabel: basicIndustry.sublabel,
-        companyKeywords: basicIndustry.keywords,
-      },
+      message: "Basic enrichment completed - AI fields blijven leeg voor ChatGPT",
+      enrichmentData: {},
     };
   } catch (error) {
     console.error("❌ Basic enrichment also failed:", error);
@@ -326,7 +321,6 @@ async function generateCompanySummary(markdown: string): Promise<{success: boole
     try {
       console.log(`🤖 GPT-5-mini attempt ${attempt}/${MAX_RETRIES}`);
     const prompt = `Je bent een intelligente AI-samenvattingsassistent die bedrijven analyseert op basis van hun website of andere bedrijfsinformatie. Je schrijft professioneel, genuanceerd en begrijpelijk Nederlands. Je begrijpt positionering, propositie en doelgroep. De output wordt gebruikt voor AI-gegenereerde cold outreach en moet als JSON worden teruggegeven, zonder foutmeldingen of markdown.
-
 Verwerk onderstaande inputtekst in het volgende JSON-formaat:
 
 {
@@ -363,10 +357,11 @@ software-saas
 vastgoed
 zorg-ggz
 
-❌ Geen uitleg, markdown of headers.
-✅ Alleen geldige JSON-output. Laat lege velden leeg indien nodig.
+📌 Gebruik deze input:
+- Tekst: \`${markdown.substring(0, 8000)}\`
 
-Tekst: ${markdown.substring(0, 8000)}`; // Limit to avoid token limits
+❌ Geen uitleg, markdown of headers.
+✅ Alleen geldige JSON-output. Laat lege velden leeg indien nodig.`; // Limit to avoid token limits
     
       // Create timeout signal
       const controller = new AbortController();
@@ -539,6 +534,9 @@ export const updateCompanyEnrichment = mutation({
   },
   returns: v.id("companies"),
   handler: async (ctx, { companyId, enrichmentData }) => {
+    // fullEnrichment alleen op true zetten als industryLabel EN companySummary beide waarden hebben
+    const hasCompleteEnrichment = !!(enrichmentData.industryLabel && enrichmentData.companySummary);
+    
     await ctx.db.patch(companyId, {
       companySummary: enrichmentData.companySummary,
       companyCommonProblems: enrichmentData.companyCommonProblems,
@@ -548,11 +546,11 @@ export const updateCompanyEnrichment = mutation({
       industryLabel: enrichmentData.industryLabel,
       subindustryLabel: enrichmentData.subindustryLabel,
       companyKeywords: enrichmentData.companyKeywords,
-      fullEnrichment: true,
+      fullEnrichment: hasCompleteEnrichment,
       lastUpdatedAt: Date.now(),
     });
     
-    console.log(`✅ Updated company ${companyId} with enrichment data`);
+    console.log(`✅ Updated company ${companyId} with enrichment data (fullEnrichment: ${hasCompleteEnrichment})`);
     return companyId;
   },
 });
