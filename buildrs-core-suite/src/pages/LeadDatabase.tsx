@@ -34,7 +34,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { MultiSelect, MultiOption } from '@/components/ui/MultiSelect';
 import { Slider } from '@/components/ui/slider';
 import { useConvexAuth } from '@/hooks/useConvexAuth';
-import { fetchEnrichedContacts, fetchFilterOptions } from '@/data/crm';
 
 // Same type as Contacts page
 type EnrichedContact = {
@@ -108,93 +107,193 @@ export default function LeadDatabase() {
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(25);
 
-  // Fetch filter options from database
-  const { data: filterOptions, isLoading: filterOptionsLoading } = useQuery({
-    queryKey: ['filter-options'],
-    queryFn: fetchFilterOptions,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
+  // Mock filter options
+  const filterOptions = {
+    functionGroups: [
+      "Marketing Decision Makers",
+      "Sales Decision Makers", 
+      "IT Decision Makers",
+      "Finance Decision Makers",
+      "HR Decision Makers",
+      "Operations Decision Makers"
+    ],
+    industryLabels: [
+      "Technology",
+      "Software", 
+      "Healthcare",
+      "Financial Services",
+      "Manufacturing",
+      "Retail",
+      "Education",
+      "Professional Services"
+    ],
+    subindustryLabels: [
+      "SaaS",
+      "Cloud Services",
+      "Cybersecurity",
+      "E-commerce",
+      "Fintech",
+      "Healthcare IT",
+      "EdTech",
+      "Consulting"
+    ],
+    locations: [
+      "Netherlands",
+      "Amsterdam, Netherlands",
+      "Rotterdam, Netherlands", 
+      "Utrecht, Netherlands",
+      "Den Haag, Netherlands",
+      "Eindhoven, Netherlands",
+      "Tilburg, Netherlands",
+      "Groningen, Netherlands"
+    ]
+  };
+  const filterOptionsLoading = false;
 
-  // Enhanced data fetching with filters
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['lead-database', search, selectedFunctionGroups, selectedIndustries, selectedSubindustries, selectedLocations, employeeCount, employeeTextInput, page, pageSize, profile?.client_id],
-    queryFn: async () => {
-      const result = await fetchEnrichedContacts(search, page, pageSize, profile?.client_id, 'created_at', 'desc');
-      
-      // Apply additional filters client-side for now
-      let filteredData = result.data;
-      
-      if (selectedFunctionGroups.length > 0) {
-        filteredData = filteredData.filter(contact => 
-          selectedFunctionGroups.includes(contact.function_group || '')
-        );
-      }
-      
-      if (selectedIndustries.length > 0) {
-        filteredData = filteredData.filter(contact => 
-          selectedIndustries.includes(contact.industry_label || contact.industry || '')
-        );
-      }
-
-      if (selectedSubindustries.length > 0) {
-        filteredData = filteredData.filter(contact => 
-          selectedSubindustries.includes(contact.subindustry_label || '')
-        );
-      }
-
-      if (selectedLocations.length > 0) {
-        filteredData = filteredData.filter(contact => {
-          // Build location strings for this contact (same logic as in location data processing)
-          const locationStrings = new Set<string>();
-          
-          // Company location
-          if (contact.company_city && contact.company_country) {
-            locationStrings.add(`${contact.company_city}, ${contact.company_country}`);
-          }
-          if (contact.company_country) {
-            locationStrings.add(contact.company_country);
-          }
-          
-          // Contact location as fallback
-          if (contact.contact_city && contact.contact_country) {
-            locationStrings.add(`${contact.contact_city}, ${contact.contact_country}`);
-          }
-          if (contact.contact_country) {
-            locationStrings.add(contact.contact_country);
-          }
-          
-          // General location fields
-          if (contact.city && contact.country) {
-            locationStrings.add(`${contact.city}, ${contact.country}`);
-          }
-          if (contact.country) {
-            locationStrings.add(contact.country);
-          }
-          
-          // Check if any of the contact's locations match selected locations
-          return selectedLocations.some(selectedLoc => 
-            [...locationStrings].some(contactLoc => contactLoc.includes(selectedLoc) || selectedLoc.includes(contactLoc))
-          );
-        });
-      }
-      
-      // Filter by employee count (use text input if provided, otherwise slider value)
-      const targetEmployeeCount = employeeTextInput ? parseInt(employeeTextInput) : employeeCount;
-      if (targetEmployeeCount > 0) {
-        filteredData = filteredData.filter(contact => {
-          const size = contact.company_size || contact.employee_count || 0;
-          return size <= targetEmployeeCount;
-        });
-      }
-      
-      return {
-        data: filteredData,
-        count: filteredData.length
-      };
+  // Mock contact data
+  const mockContacts: EnrichedContact[] = [
+    {
+      id: "1",
+      contact_id: "c1",
+      first_name: "John",
+      last_name: "Doe",
+      email: "john.doe@example.com",
+      mobile_phone: "+31612345678",
+      status: "cold",
+      company_name: "Example Corp",
+      domain: "example.com",
+      website: "example.com",
+      linkedin_url: "https://linkedin.com/in/johndoe",
+      job_title: "Marketing Manager",
+      function_group: "Marketing Decision Makers",
+      industry: "Technology",
+      industry_label: "Software",
+      subindustry_label: "SaaS",
+      employee_count: 150,
+      company_size: 150,
+      city: "Amsterdam",
+      state: "Noord-Holland", 
+      country: "Netherlands",
+      company_city: "Amsterdam",
+      company_state: "Noord-Holland",
+      company_country: "Netherlands",
+      contact_city: "Amsterdam",
+      contact_state: "Noord-Holland", 
+      contact_country: "Netherlands"
     },
-    enabled: !!profile?.client_id,
-    placeholderData: (previousData) => previousData,
-  });
+    {
+      id: "2",
+      contact_id: "c2",
+      first_name: "Jane",
+      last_name: "Smith", 
+      email: "jane.smith@techcorp.com",
+      mobile_phone: "+31687654321",
+      status: "warm",
+      company_name: "TechCorp",
+      domain: "techcorp.com",
+      website: "techcorp.com",
+      linkedin_url: "https://linkedin.com/in/janesmith",
+      job_title: "Sales Director",
+      function_group: "Sales Decision Makers",
+      industry: "Technology",
+      industry_label: "Technology",
+      subindustry_label: "Cloud Services",
+      employee_count: 500,
+      company_size: 500,
+      city: "Rotterdam",
+      state: "Zuid-Holland",
+      country: "Netherlands", 
+      company_city: "Rotterdam",
+      company_state: "Zuid-Holland",
+      company_country: "Netherlands",
+      contact_city: "Rotterdam",
+      contact_state: "Zuid-Holland",
+      contact_country: "Netherlands"
+    }
+  ];
+
+  const rawData = {
+    data: mockContacts,
+    count: mockContacts.length,
+    page,
+    pageSize,
+    totalPages: Math.ceil(mockContacts.length / pageSize)
+  };
+
+  // Apply additional filters client-side for now
+  const data = (() => {
+    let filteredData = [...mockContacts];
+    
+    if (selectedFunctionGroups.length > 0) {
+      filteredData = filteredData.filter(contact => 
+        selectedFunctionGroups.includes(contact.function_group || '')
+      );
+    }
+    
+    if (selectedIndustries.length > 0) {
+      filteredData = filteredData.filter(contact => 
+        selectedIndustries.includes(contact.industry_label || contact.industry || '')
+      );
+    }
+
+    if (selectedSubindustries.length > 0) {
+      filteredData = filteredData.filter(contact => 
+        selectedSubindustries.includes(contact.subindustry_label || '')
+      );
+    }
+
+    if (selectedLocations.length > 0) {
+      filteredData = filteredData.filter(contact => {
+        // Build location strings for this contact (same logic as in location data processing)
+        const locationStrings = new Set<string>();
+        
+        // Company location
+        if (contact.company_city && contact.company_country) {
+          locationStrings.add(`${contact.company_city}, ${contact.company_country}`);
+        }
+        if (contact.company_country) {
+          locationStrings.add(contact.company_country);
+        }
+        
+        // Contact location as fallback
+        if (contact.contact_city && contact.contact_country) {
+          locationStrings.add(`${contact.contact_city}, ${contact.contact_country}`);
+        }
+        if (contact.contact_country) {
+          locationStrings.add(contact.contact_country);
+        }
+        
+        // General location fields
+        if (contact.city && contact.country) {
+          locationStrings.add(`${contact.city}, ${contact.country}`);
+        }
+        if (contact.country) {
+          locationStrings.add(contact.country);
+        }
+        
+        // Check if any of the contact's locations match selected locations
+        return selectedLocations.some(selectedLoc => 
+          [...locationStrings].some(contactLoc => contactLoc.includes(selectedLoc) || selectedLoc.includes(contactLoc))
+        );
+      });
+    }
+    
+    // Filter by employee count (use text input if provided, otherwise slider value)
+    const targetEmployeeCount = employeeTextInput ? parseInt(employeeTextInput) : employeeCount;
+    if (targetEmployeeCount > 0) {
+      filteredData = filteredData.filter(contact => {
+        const size = contact.company_size || contact.employee_count || 0;
+        return size <= targetEmployeeCount;
+      });
+    }
+    
+    return {
+      data: filteredData,
+      count: filteredData.length
+    };
+  })();
+
+  const isLoading = false;
   
   const contacts: EnrichedContact[] = (data as any)?.data ?? []
   const total = (data as any)?.count ?? 0

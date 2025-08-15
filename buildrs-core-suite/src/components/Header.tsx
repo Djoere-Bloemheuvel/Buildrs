@@ -1,11 +1,10 @@
 
-import { Bell, Search, User, LogOut, Menu } from 'lucide-react';
+import { Bell, Search, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ThemeSelector } from '@/components/ThemeSelector';
-import { useConvexAuth } from '@/hooks/useConvexAuth';
-import { toast } from 'sonner';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface HeaderProps {
@@ -13,21 +12,6 @@ interface HeaderProps {
 }
 
 export const Header = ({ onSidebarOpen }: HeaderProps) => {
-  const { user } = useConvexAuth();
-  // Mock profile and signOut for development
-  const profile = { name: 'Test User', email: 'test@example.com' };
-  const signOut = async () => ({ error: null });
-  
-  const handleSignOut = async () => {
-    const {
-      error
-    } = await signOut();
-    if (error) {
-      toast.error('Fout bij uitloggen');
-    } else {
-      toast.success('Succesvol uitgelogd');
-    }
-  };
 
   return (
     <header className="border-b border-border bg-card/50">
@@ -63,23 +47,22 @@ export const Header = ({ onSidebarOpen }: HeaderProps) => {
           
           <ThemeSelector />
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <ThemeAwareIconButton>
-                <User className="h-4 w-4" />
-              </ThemeAwareIconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>
-                {profile?.full_name || user?.email}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Uitloggen
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Clerk Authentication */}
+          <SignedOut>
+            <Link to="/sign-in">
+              <Button variant="ghost" size="sm">
+                Inloggen
+              </Button>
+            </Link>
+            <Link to="/sign-up">
+              <Button size="sm">
+                Registreren
+              </Button>
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
         </div>
       </div>
     </header>

@@ -33,40 +33,39 @@ import './App.css';
 function App() {
   return (
     <>
-      {/* Temporarily disabled auth for development */}
-      {/* <ConvexAuthGuard> */}
+      <ConvexAuthGuard>
         <FocusModeProvider>
           <FocusHeader />
           <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/contacts" element={<ContactsPage />} />
-            <Route path="/contacts2" element={<Contacts2Page />} />
-            <Route path="/contacts/:contactId" element={<ContactDetail />} />
-            <Route path="/companies" element={<Companies />} />
-            <Route path="/accounts/:companyId" element={<AccountDetail />} />
-            <Route path="/deals" element={<Deals />} />
-            <Route path="/deals/:dealId" element={<DealDetail />} />
-            <Route path="/activities" element={<Activities />} />
-            <Route path="/offertes" element={<Offertes />} />
-            <Route path="/proposities" element={<PropositionsPage />} />
-            <Route path="/ops" element={<OpsPage />} />
-            <Route path="/ops/dashboard" element={<OpsDashboardPage />} />
-            <Route path="/ops/projects" element={<OpsProjectsPage />} />
-            <Route path="/ops/projects/:projectId" element={<OpsProjectDetailPage />} />
-            <Route path="/ops/inbox" element={<OpsInboxPage />} />
-            <Route path="/lead-engine/database" element={<LeadDatabase />} />
-            <Route path="/lead-engine/abm" element={<LeadABM />} />
-            <Route path="/lead-engine/linkedin" element={<LeadLinkedIn />} />
-            <Route path="/lead-engine/linkedin/:campaignId" element={<LinkedInCampaignEditor />} />
-            <Route path="/lead-engine/email" element={<LeadEmail />} />
-            <Route path="/lead-engine/email/:campaignId" element={<EmailCampaignEditor />} />
-            <Route path="/test" element={<TestPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/contacts" element={<ContactsPage />} />
+              <Route path="/contacts2" element={<Contacts2Page />} />
+              <Route path="/contacts/:contactId" element={<ContactDetail />} />
+              <Route path="/companies" element={<Companies />} />
+              <Route path="/accounts/:companyId" element={<AccountDetail />} />
+              <Route path="/deals" element={<Deals />} />
+              <Route path="/deals/:dealId" element={<DealDetail />} />
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/offertes" element={<Offertes />} />
+              <Route path="/proposities" element={<PropositionsPage />} />
+              <Route path="/ops" element={<OpsPage />} />
+              <Route path="/ops/dashboard" element={<OpsDashboardPage />} />
+              <Route path="/ops/projects" element={<OpsProjectsPage />} />
+              <Route path="/ops/projects/:projectId" element={<OpsProjectDetailPage />} />
+              <Route path="/ops/inbox" element={<OpsInboxPage />} />
+              <Route path="/lead-engine/database" element={<LeadDatabase />} />
+              <Route path="/lead-engine/abm" element={<LeadABM />} />
+              <Route path="/lead-engine/linkedin" element={<LeadLinkedIn />} />
+              <Route path="/lead-engine/linkedin/:campaignId" element={<LinkedInCampaignEditor />} />
+              <Route path="/lead-engine/email" element={<LeadEmail />} />
+              <Route path="/lead-engine/email/:campaignId" element={<EmailCampaignEditor />} />
+              <Route path="/test" element={<TestPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </Layout>
         </FocusModeProvider>
-      {/* </ConvexAuthGuard> */}
+      </ConvexAuthGuard>
       <Toaster />
     </>
   );

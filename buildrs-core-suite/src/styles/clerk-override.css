@@ -1,0 +1,125 @@
+/* Clerk Dark Theme Override */
+
+/* Force all Clerk components to be transparent */
+.cl-rootBox,
+.cl-card,
+.cl-main,
+.cl-formContainer {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Hide Clerk headers */
+.cl-header,
+.cl-headerTitle,
+.cl-headerSubtitle,
+.cl-formHeaderTitle,
+.cl-formHeaderSubtitle {
+  display: none !important;
+}
+
+/* Style form fields for dark theme */
+.cl-formField {
+  margin-bottom: 1rem !important;
+}
+
+.cl-formFieldLabel {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.cl-formFieldInput {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border-radius: 0.5rem !important;
+  height: 3rem !important;
+  padding: 0 1rem !important;
+  width: 100% !important;
+  font-size: 0.875rem !important;
+}
+
+.cl-formFieldInput::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.cl-formFieldInput:focus {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+  outline: none !important;
+}
+
+/* Style primary button */
+.cl-formButtonPrimary {
+  background: #2563eb !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  height: 3rem !important;
+  font-weight: 500 !important;
+  width: 100% !important;
+  transition: background-color 0.2s !important;
+  margin-top: 1rem !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background: #1d4ed8 !important;
+}
+
+/* Style links */
+.cl-footerActionLink,
+.cl-formFieldAction {
+  color: #60a5fa !important;
+  text-decoration: none !important;
+  font-size: 0.875rem !important;
+}
+
+.cl-footerActionLink:hover,
+.cl-formFieldAction:hover {
+  color: #93c5fd !important;
+}
+
+/* Style footer */
+.cl-footer {
+  background: transparent !important;
+  border: none !important;
+  margin-top: 1rem !important;
+}
+
+/* Style dividers */
+.cl-dividerLine {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-dividerText {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Style social buttons */
+.cl-socialButtonsBlockButton {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.cl-socialButtonsBlockButton:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: white !important;
+}
+
+/* Hide any remaining white backgrounds */
+[class*="cl-"] {
+  background-color: transparent !important;
+}
+
+/* Force dark scrollbars if any */
+.cl-rootBox * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}

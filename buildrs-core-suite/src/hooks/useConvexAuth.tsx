@@ -1,46 +1,54 @@
-import { useAuthActions, useCurrentUser } from "@convex-dev/auth/react";
 import { useUser } from "@clerk/clerk-react";
 
 export function useConvexAuth() {
-  // Mock for development while Clerk keys are not set
-  const isClerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && 
-                                  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY !== 'pk_test_your_clerk_key_here');
+  const { user: clerkUser, isLoaded } = useUser();
+  
+  // If Clerk is not loaded yet, return loading state
+  if (!isLoaded) {
+    return {
+      user: null,
+      clerkUser: null,
+      isLoaded: false,
+      isAuthenticated: false,
+      signIn: async () => {},
+      signOut: async () => {},
+      getUserId: () => null,
+      getEmail: () => null,
+      getName: () => null,
+    };
+  }
 
-  if (!isClerkConfigured) {
-    // Return mock data when Clerk is not configured
-    const mockUser = {
-      _id: 'mock-user-id',
-      name: 'Test User',
-      email: 'test@example.com'
+  // If user is authenticated, return real data
+  if (clerkUser) {
+    const convexUser = {
+      _id: clerkUser.id,
+      name: clerkUser.fullName || clerkUser.firstName || 'User',
+      email: clerkUser.primaryEmailAddress?.emailAddress || ''
     };
 
     return {
-      user: mockUser,
-      clerkUser: mockUser,
+      user: convexUser,
+      clerkUser,
       isLoaded: true,
       isAuthenticated: true,
       signIn: async () => {},
       signOut: async () => {},
-      getUserId: () => mockUser._id,
-      getEmail: () => mockUser.email,
-      getName: () => mockUser.name,
+      getUserId: () => convexUser._id,
+      getEmail: () => convexUser.email,
+      getName: () => convexUser.name,
     };
   }
 
-  // Real implementation when Clerk is configured
-  const { signIn, signOut } = useAuthActions();
-  const convexUser = useCurrentUser();
-  const { user: clerkUser, isLoaded } = useUser();
-
+  // If not authenticated, return null user
   return {
-    user: convexUser,
-    clerkUser,
-    isLoaded,
-    isAuthenticated: !!convexUser,
-    signIn,
-    signOut,
-    getUserId: () => convexUser?._id,
-    getEmail: () => clerkUser?.primaryEmailAddress?.emailAddress || convexUser?.email,
-    getName: () => clerkUser?.fullName || convexUser?.name,
+    user: null,
+    clerkUser: null,
+    isLoaded: true,
+    isAuthenticated: false,
+    signIn: async () => {},
+    signOut: async () => {},
+    getUserId: () => null,
+    getEmail: () => null,
+    getName: () => null,
   };
 }
