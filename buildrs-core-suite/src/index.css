@@ -1,0 +1,627 @@
+/* Premium Apple-style Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* =================================================================
+       GLOBAL PRIMARY GRADIENT TOKENS - BLUE GRADIENT IDENTITY
+       ================================================================= */
+    
+    /* Primary gradient stops - blue gradient colors */
+    --primary-0: #0a1e4e;    /* deep navy blue */
+    --primary-1: #0f2e5f;    /* navy-blue */
+    --primary-2: #2347a3;    /* royal blue */
+    --primary-3: #3a6ff2;    /* bright blue */
+    
+    /* Primary gradient definition */
+    --primary-gradient: linear-gradient(135deg, var(--primary-0) 0%, var(--primary-1) 40%, var(--primary-2) 70%, var(--primary-3) 100%);
+    
+    /* Derived solid colors for borders/focus */
+    --primary-400: #63a8ff;   
+    --primary-500: #3a6ff2;   /* solid accent */
+    --primary-600: #2e5bd1;    
+    
+    /* Auth glass + inputs defaults */
+    --auth-card-rgb: 20 20 22;      /* off-black base */
+    --auth-card-alpha: 0.88;         /* slightly transparent but solid */
+    --auth-glass-blur: 16px;
+    --auth-border-alpha: 0.08;
+
+    --input-bg-alpha: 0.05;
+    --input-border-alpha: 0.12;
+    --input-inner-alpha: 0.06;
+
+    /* Premium Dark Mode Colors - Updated to use primary gradient */
+    --background: 218 20% 4%;
+    --foreground: 220 20% 98%;
+    
+    /* Card System - Updated to #0E1116 */
+    --card: 217 20% 7%;
+    --card-foreground: 215 20% 95%;
+    --card-border: 217 25% 14%;
+    
+    /* Premium Glass Effect - Updated backgrounds */
+    --glass: 217 20% 8%;
+    --glass-border: 217 25% 16%;
+    
+    /* Primary colors now use the new blue gradient system */
+    --primary: 215 87% 59%; /* HSL equivalent of #3a6ff2 */
+    --primary-foreground: 220 20% 98%;
+    --primary-glow: 215 87% 59%;
+    
+    /* Hover state - lighter variant from gradient */
+    --secondary: 215 78% 69%; /* HSL equivalent of #63a8ff */
+    --secondary-foreground: 220 20% 98%;
+    --secondary-glow: 215 78% 69%;
+    
+    /* All accent variations now use the primary gradient theme */
+    --accent-green: 215 87% 59%;
+    --accent-green-foreground: 220 20% 98%;
+    --accent-green-glow: 215 87% 59%;
+    
+    --accent-orange: 215 87% 59%;
+    --accent-orange-foreground: 220 20% 98%;
+    --accent-orange-glow: 215 87% 59%;
+    
+    /* Status Colors - Specified colors */
+    --success: 158 64% 52%; /* #10B981 */
+    --success-foreground: 220 20% 98%;
+    --warning: 43 96% 56%; /* #F59E0B */
+    --warning-foreground: 220 20% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 20% 98%;
+    
+    /* UI Elements with Updated backgrounds */
+    --muted: 217 20% 9%;
+    --muted-foreground: 215 16% 64%; /* #9CA3AF equivalent */
+    --border: 217 25% 14%;
+    --input: 217 20% 8%;
+    --ring: 215 87% 59%;
+    --radius: 1.5rem;
+    
+    /* Accent colors - now using primary gradient */
+    --accent: 215 87% 59%;
+    --accent-foreground: 220 20% 94%;
+  }
+
+  
+
+  /* Smooth theme transitions without layout shift */
+  .theme-transition *, .theme-transition body {
+    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, outline-color 300ms ease;
+  }
+  
+  .premium-white {
+    /* Primary gradient stays identical for consistency */
+    --primary-gradient: linear-gradient(135deg, var(--primary-0) 0%, var(--primary-1) 40%, var(--primary-2) 70%, var(--primary-3) 100%);
+    --primary: 215 87% 59%;
+    
+    /* Premium White Theme - Pure White Aesthetic */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    
+    /* Card System - Pure white cards with subtle borders */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --card-border: 220 13% 91%;
+    
+    /* Glass Effect - Pure white with transparency */
+    --glass: 0 0% 100%;
+    --glass-border: 220 13% 91%;
+    
+    /* Primary colors use gradient */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 215 87% 59%;
+    
+    --secondary: 215 78% 69%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-glow: 215 78% 69%;
+    
+    /* All accent variations use primary theme in light mode too */
+    --accent-green: 215 87% 59%;
+    --accent-green-foreground: 0 0% 100%;
+    --accent-green-glow: 215 87% 59%;
+    
+    --accent-orange: 215 87% 59%;
+    --accent-orange-foreground: 0 0% 100%;
+    --accent-orange-glow: 215 87% 59%;
+    
+    /* Status Colors */
+    --success: 158 64% 52%; /* #10B981 */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%; /* #F59E0B */
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements for light theme */
+    --muted: 210 40% 98%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 215 87% 59%;
+    
+    /* Accent colors - now using primary gradient */
+    --accent: 215 87% 59%;
+    --accent-foreground: 222.2 84% 4.9%;
+  }
+
+  .light {
+    /* Alias for premium-white - ensures compatibility */
+    --primary-gradient: linear-gradient(135deg, var(--primary-0) 0%, var(--primary-1) 40%, var(--primary-2) 70%, var(--primary-3) 100%);
+    --primary: 215 87% 59%;
+    
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --card-border: 220 13% 91%;
+    --glass: 0 0% 100%;
+    --glass-border: 220 13% 91%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 78% 69%;
+    --secondary-foreground: 0 0% 100%;
+    --success: 158 64% 52%;
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --muted: 210 40% 98%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 215 87% 59%;
+    --accent: 215 87% 59%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --accent-green: 215 87% 59%;
+    --accent-green-foreground: 0 0% 100%;
+    --accent-orange: 215 87% 59%;
+    --accent-orange-foreground: 0 0% 100%;
+  }
+
+  .premium-black {
+    /* Primary gradient stays identical */
+    --primary-gradient: linear-gradient(135deg, var(--primary-0) 0%, var(--primary-1) 40%, var(--primary-2) 70%, var(--primary-3) 100%);
+    --primary: 215 87% 59%;
+    
+    /* Premium Black Theme with updated colors */
+    --background: 218 20% 3%;
+    --foreground: 215 20% 95%; /* #F3F4F6 equivalent */
+    --card: 217 20% 6%;
+    --card-foreground: 215 20% 95%;
+    --card-border: 217 25% 12%;
+    --glass: 217 20% 7%;
+    --glass-border: 217 25% 14%;
+    --muted: 217 20% 8%;
+    --muted-foreground: 215 16% 64%; /* #9CA3AF equivalent */
+    --border: 217 25% 12%;
+    --input: 217 20% 7%;
+    --accent: 215 87% 59%;
+    --accent-foreground: 215 20% 94%;
+    
+    /* Primary uses gradient */
+    --primary-foreground: 215 20% 95%;
+    --ring: 215 87% 59%;
+  }
+}
+
+@layer components {
+  /* Contact links: slightly lighter than headings/names in all themes */
+  .contacts-link-neutral {
+    color: hsl(var(--muted-foreground)) !important;
+    text-decoration: none;
+  }
+  .theme-premium-black .contacts-link-neutral {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  .contacts-link-neutral:hover {
+    color: hsl(var(--foreground)) !important;
+    opacity: 0.95;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  /* Table surfaces (opaque, theme-aware) */
+  .table-header-opaque { 
+    background: hsl(var(--glass));
+  }
+  .table-sticky-opaque { 
+    background: hsl(var(--glass));
+  }
+  .table-accent-border {
+    border-color: hsl(var(--ring) / 0.2) !important;
+  }
+  /* =================================================================
+     PRIMARY GRADIENT UTILITIES - SAFE TO USE ANYWHERE
+     ================================================================= */
+  
+  .u-bg-primary-gradient { 
+    background: var(--primary-gradient); 
+  }
+  
+  .u-text-primary { 
+    color: var(--primary-500); 
+  }
+  
+  .u-border-primary { 
+    border-color: var(--primary-600); 
+  }
+  
+  .u-ring-primary { 
+    box-shadow: 0 0 0 2px rgba(58,111,242,.20), 0 0 0 4px rgba(99,168,255,.12); 
+  }
+
+  /* Links (accent only; no layout change) */
+  a.link-primary { 
+    color: var(--primary-500); 
+  }
+  
+  a.link-primary:hover { 
+    filter: brightness(1.06); 
+  }
+
+  /* Primary buttons using gradient */
+  .btn-primary, .button-primary {
+    background: var(--primary-gradient);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.10);
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary:hover, .button-primary:hover {
+    filter: brightness(1.05);
+  }
+
+  /* Remove white bloom/desaturation filters */
+  .auth-ambient, .auth-card, .auth-card * {
+    filter: none !important;
+  }
+
+  /* Ambient backglow uses PRIMARY GRADIENT (not white) */
+  .auth-ambient { 
+    position: relative; 
+  }
+  
+  .auth-ambient::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(42rem 32rem at 20% 25%, rgba(58,111,242,0.12), transparent 60%),
+      radial-gradient(36rem 30rem at 80% 70%, rgba(35,71,163,0.10), transparent 60%),
+      radial-gradient(28rem 24rem at 50% 90%, rgba(15,46,95,0.08), transparent 60%);
+    filter: blur(2px);
+  }
+  
+  .auth-ambient.auth-vignette::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(80% 60% at 50% 40%, transparent 60%, rgba(0,0,0,.34) 100%);
+  }
+
+  /* Auth card: opaque enough + depth (no layout change) */
+  .auth-card, .auth-card.deep-card {
+    background: rgb(var(--auth-card-rgb) / var(--auth-card-alpha)) !important;
+    backdrop-filter: blur(var(--auth-glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--auth-glass-blur)) saturate(150%);
+    border: 1px solid rgb(255 255 255 / var(--auth-border-alpha));
+    box-shadow:
+      0 2px 6px rgba(0,0,0,.45),
+      0 20px 60px rgba(0,0,0,.60);
+    position: relative;
+    isolation: isolate;
+    z-index: 1;
+  }
+  
+  .auth-card.deep-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 20px rgba(255,255,255,0.03);
+  }
+  
+  /* Colored ambient leak (subtle, using primary—not white) */
+  .auth-card.deep-card::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(60% 80% at 20% 20%, rgba(58,111,242,0.16), transparent 60%),
+      radial-gradient(60% 80% at 80% 80%, rgba(35,71,163,0.12), transparent 60%);
+    filter: blur(26px);
+  }
+
+  /* Focus rings use primary */
+  :focus-visible {
+    outline-color: var(--primary-500);
+  }
+
+  .ambient-vignette {
+    position: relative;
+  }
+  .ambient-vignette::before {
+    content: "";
+    position: fixed;
+    inset: -20vh -20vw;
+    z-index: -1;
+    background: radial-gradient(1200px 800px at 20% 10%, rgba(58,111,242,0.08), transparent 60%),
+                radial-gradient(1200px 800px at 80% 90%, rgba(35,71,163,0.08), transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Theme-specific vignette tuning */
+  .premium-white .ambient-vignette::before {
+    background: radial-gradient(1100px 700px at 10% 0%, rgba(58,111,242,0.06), transparent 60%),
+                radial-gradient(1000px 700px at 90% 100%, rgba(35,71,163,0.05), transparent 60%);
+  }
+  .premium-black .ambient-vignette::before {
+    background: radial-gradient(1200px 800px at 15% 5%, rgba(58,111,242,0.12), transparent 60%),
+                radial-gradient(1200px 800px at 85% 95%, rgba(35,71,163,0.10), transparent 60%);
+  }
+
+  @media (min-width: 1024px) {
+    .premium-white .ambient-vignette::before {
+      background: radial-gradient(1300px 850px at 8% 0%, rgba(58,111,242,0.06), transparent 62%),
+                  radial-gradient(1200px 800px at 92% 100%, rgba(35,71,163,0.05), transparent 62%);
+    }
+    .premium-black .ambient-vignette::before {
+      background: radial-gradient(1400px 900px at 12% 4%, rgba(58,111,242,0.12), transparent 62%),
+                  radial-gradient(1400px 900px at 88% 96%, rgba(35,71,163,0.10), transparent 62%);
+    }
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 1rem;
+    padding: 1px;
+    background: var(--primary-gradient);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .soft-press { transition: transform 200ms ease, box-shadow 200ms ease; }
+  .soft-press:active { transform: translateY(1px); }
+
+  .icon-glow {
+    filter: drop-shadow(0 0 var(--icon-glow-blur, 0px) var(--icon-glow-color, transparent));
+    transition: filter 600ms cubic-bezier(0.22, 1, 0.36, 1), color 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .icon-glow-wrap { position: relative; }
+  .icon-glow-wrap::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 8px;
+    pointer-events: none;
+    background: radial-gradient(closest-side, rgba(58,111,242,0.45) 0%, transparent 70%);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1), transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+    filter: blur(6px);
+  }
+  .icon-glow-active::before { opacity: 1; transform: scale(1); }
+  .glow-show::before { opacity: 0.7; transform: scale(1); }
+
+  /* Updated gradient buttons using new primary gradient */
+  .accent-gradient-btn {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 
+      0 12px 30px rgba(58,111,242,0.4),
+      0 6px 15px rgba(58,111,242,0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  
+  .accent-gradient-btn:hover {
+    transform: translateY(-1px) scale(1.05);
+    filter: brightness(1.1) saturate(1.1);
+    box-shadow: 
+      0 20px 40px rgba(35,71,163,0.6),
+      0 10px 25px rgba(35,71,163,0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  /* Enhanced Icon Containers with Primary Gradient */
+  .accent-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background: var(--primary-gradient);
+    box-shadow: 
+      0 10px 25px rgba(58,111,242,0.4),
+      0 4px 12px rgba(58,111,242,0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .accent-icon:hover {
+    transform: scale(1.1);
+    filter: brightness(1.1) saturate(1.1);
+  }
+
+  /* Apple Icon Styles - All using primary gradient now */
+  .apple-icon-primary {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background: var(--primary-gradient);
+    box-shadow: 
+      0 8px 20px rgba(58,111,242,0.3),
+      0 4px 10px rgba(58,111,242,0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .apple-icon-secondary {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background: var(--primary-gradient);
+    box-shadow: 
+      0 8px 20px rgba(58,111,242,0.3),
+      0 4px 10px rgba(58,111,242,0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  /* Progress bars with primary gradient */
+  .accent-progress {
+    background: var(--primary-gradient);
+  }
+  
+  /* Apple Button Styles using primary colors */
+  .apple-btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 
+      0 8px 20px rgba(58,111,242,0.3),
+      0 4px 10px rgba(58,111,242,0.15);
+  }
+
+  .apple-btn-primary:hover {
+    transform: translateY(-1px) scale(1.02);
+    filter: brightness(1.1) saturate(1.1);
+    box-shadow: 
+      0 12px 30px rgba(35,71,163,0.4),
+      0 6px 15px rgba(35,71,163,0.2);
+  }
+
+  .apple-btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(58,111,242,0.2);
+    color: var(--primary-500);
+    border-radius: 0.75rem;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .apple-btn-ghost:hover {
+    background: rgba(58,111,242,0.1);
+    border-color: rgba(35,71,163,0.3);
+    transform: scale(1.02);
+  }
+
+  .glass-btn-secondary {
+    background: linear-gradient(90deg, rgba(58,111,242,0.8), rgba(35,71,163,0.6));
+    color: white;
+    border: 1px solid rgba(58,111,242,0.3);
+    backdrop-filter: blur(10px);
+  }
+
+  .glass-btn-ghost {
+    background: rgba(58,111,242,0.05);
+    color: var(--primary-500);
+    border: 1px solid rgba(58,111,242,0.2);
+    backdrop-filter: blur(10px);
+  }
+}
+
+@layer utilities {
+  .font-sf {
+    font-family: 'SF Pro Display', 'Inter', sans-serif;
+  }
+  
+  .text-gradient-accent {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Responsive Container */
+  .glass-container {
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .glass-container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .glass-container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  /* Apple-style animations */
+  .animate-apple-pulse-glow {
+    animation: apple-pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes apple-pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 8px rgba(58,111,242,0.6);
+    }
+    50% {
+      opacity: 0.7;
+      box-shadow: 0 0 16px rgba(58,111,242,0.8);
+    }
+  }
+}
+
+/* Responsive Design Helpers */
+@media (max-width: 640px) {
+  .glass-card {
+    border-radius: 1rem;
+  }
+  
+  .glass-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .accent-gradient-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+  }
+}

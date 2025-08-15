@@ -1,0 +1,66 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script>
+      (function(){
+        try {
+          var THEME_KEY = 'theme';
+          var DEFAULT_THEME = 'premium-jet-black';
+          var VALID_THEMES = ['premium-white', 'premium-black', 'premium-navy', 'premium-jet-black'];
+          
+          // Get theme from localStorage, default to premium-jet-black
+          var saved = localStorage.getItem(THEME_KEY);
+          var theme = (saved && VALID_THEMES.includes(saved)) ? saved : DEFAULT_THEME;
+          
+          var root = document.documentElement;
+          
+          // Remove any existing theme classes
+          root.classList.remove('light', 'dark', 'premium-white', 'premium-black', 'premium-navy', 'premium-jet-black', 'theme-premium-navy', 'theme-premium-black', 'theme-premium-jet-black');
+          
+          // Add the current theme class
+          root.classList.add(theme);
+          
+          // Add theme-specific override classes
+          if (theme === 'premium-black') {
+            root.classList.add('theme-premium-black');
+          } else if (theme === 'premium-navy') {
+            root.classList.add('theme-premium-navy');
+          } else if (theme === 'premium-jet-black') {
+            root.classList.add('theme-premium-jet-black');
+          }
+          
+          // Add light/dark class for compatibility
+          if (theme === 'premium-white') {
+            root.classList.add('light');
+          } else {
+            root.classList.add('dark');
+          }
+          
+        } catch (e) {
+          // Fallback: apply default theme
+          document.documentElement.classList.add('premium-jet-black', 'theme-premium-jet-black', 'dark');
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>buildrs-core-suite</title>
+    <meta name="description" content="Lovable Generated Project" />
+    <meta name="author" content="Lovable" />
+
+    <meta property="og:title" content="buildrs-core-suite" />
+    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@lovable_dev" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

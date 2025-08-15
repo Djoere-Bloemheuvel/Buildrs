@@ -1,0 +1,173 @@
+
+/* Premium Black Theme Styles */
+:root.premium-black {
+  /* Premium Black color scheme */
+  --black-bg-page: #0a0c10;
+  --black-card-rgb: 15 18 25;
+  --black-card-alpha: 0.95;
+  --black-blur: 12px;
+  --black-glow: 0 0 30px rgba(59, 130, 246, 0.35);
+  --black-text-primary: #f9fafb;
+  --black-text-secondary: #d1d5db;
+  --black-text-muted: #9ca3af;
+  --black-button-glow: rgba(59, 130, 246, 0.4);
+  --black-border-radius: 14px;
+  
+  /* Override default theme colors for Premium Black */
+  --background: var(--black-bg-page);
+  --foreground: var(--black-text-primary);
+  --muted: #374151;
+  --muted-foreground: var(--black-text-muted);
+  --card: rgb(var(--black-card-rgb) / var(--black-card-alpha));
+  --card-foreground: var(--black-text-primary);
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.08);
+  --accent: #1f2937;
+  --accent-foreground: var(--black-text-primary);
+  --primary: 213 100% 58%;
+  --primary-foreground: #ffffff;
+  --secondary: 220 13% 18%;
+  --secondary-foreground: var(--black-text-primary);
+}
+
+/* Premium Black Card Styling */
+.premium-black .glass-card,
+.premium-black .apple-card,
+.premium-black .soft-press {
+  background: rgb(var(--black-card-rgb) / var(--black-card-alpha)) !important;
+  border-radius: var(--black-border-radius) !important;
+  box-shadow: var(--black-glow) !important;
+  backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--black-text-primary) !important;
+}
+
+/* Premium Black Sidebar Styling */
+.premium-black .sidebar {
+  background: rgb(var(--black-card-rgb) / var(--black-card-alpha)) !important;
+  backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Premium Black Header Styling */
+.premium-black .glass-surface {
+  background: rgb(var(--black-card-rgb) / 0.9) !important;
+  backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--black-blur)) saturate(130%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Premium Black Text Colors - Fix all black text */
+.premium-black,
+.premium-black * {
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black .text-primary {
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black .text-secondary,
+.premium-black .text-muted,
+.premium-black .text-muted-foreground {
+  color: var(--black-text-muted) !important;
+}
+
+.premium-black h1,
+.premium-black h2,
+.premium-black h3,
+.premium-black h4,
+.premium-black h5,
+.premium-black h6 {
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black p,
+.premium-black span,
+.premium-black div {
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black .text-gray-900,
+.premium-black .text-gray-800,
+.premium-black .text-gray-700,
+.premium-black .text-black {
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black .text-gray-600,
+.premium-black .text-gray-500 {
+  color: var(--black-text-secondary) !important;
+}
+
+.premium-black .text-gray-400 {
+  color: var(--black-text-muted) !important;
+}
+
+/* Premium Black Button Glow Effects */
+.premium-black button[type="submit"],
+.premium-black .btn-primary,
+.premium-black .bg-primary {
+  box-shadow: 0 0 20px var(--black-button-glow) !important;
+}
+
+/* Premium Black Active States */
+.premium-black .bg-blue-50,
+.premium-black .bg-gray-50 {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+.premium-black .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+/* Premium Black Progress Bars */
+.premium-black .accent-progress {
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
+}
+
+/* Premium Black Input Styling */
+.premium-black input,
+.premium-black textarea,
+.premium-black select {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--black-text-primary) !important;
+}
+
+.premium-black input::placeholder,
+.premium-black textarea::placeholder {
+  color: var(--black-text-muted) !important;
+}
+
+.premium-black input:focus,
+.premium-black textarea:focus,
+.premium-black select:focus {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Premium Black Labels */
+.premium-black label {
+  color: var(--black-text-primary) !important;
+}
+
+/* Premium Black Dropdown Menus */
+.premium-black .dropdown-menu,
+.premium-black [data-radix-popper-content-wrapper] {
+  background: rgb(var(--black-card-rgb) / var(--black-card-alpha)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: var(--black-glow) !important;
+  backdrop-filter: blur(var(--black-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--black-blur)) !important;
+}
+
+/* Premium Black Badges */
+.premium-black .badge,
+.premium-black [class*="badge"] {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+}

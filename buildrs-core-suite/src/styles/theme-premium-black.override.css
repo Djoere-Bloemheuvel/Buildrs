@@ -1,0 +1,319 @@
+
+/* ===========================
+   Premium Black – Unified Theme
+   Merges Premium Navy + Premium Black into a single premium experience
+   =========================== */
+
+.theme-premium-black {
+  /* Base surfaces - Deep Premium Black */
+  --bg-page: #0B0B0D;
+  --bg-elevated: #111114;
+  --card-rgb: 15 15 18;              /* #0F0F12 - Deep black with subtle warmth */
+  --card-alpha: 0.85;                /* More opaque for better readability */
+
+  /* Typography - High contrast white */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255,255,255,0.75);
+  --text-muted: rgba(255,255,255,0.55);
+  --text-disabled: rgba(255,255,255,0.35);
+
+  /* Borders - Subtle and consistent */
+  --border-weak: rgba(255,255,255,0.08);
+  --border-medium: rgba(255,255,255,0.12);
+  --border-strong: rgba(255,255,255,0.18);
+
+  /* Gradient Blue Accent - Primary interactive color */
+  --accent-blue-start: #0072FF;
+  --accent-blue-end: #00C6FF;
+  --accent-gradient: linear-gradient(135deg, var(--accent-blue-start) 0%, var(--accent-blue-end) 100%);
+  --accent-blue-subtle: rgba(0, 114, 255, 0.15);
+  --accent-blue-medium: rgba(0, 114, 255, 0.25);
+
+  /* Glass effects - Refined and premium */
+  --blur: 16px;
+  --blur-mobile: 12px;
+  --glass-highlight: rgba(255,255,255,0.05);
+  --glass-shadow: rgba(0,0,0,0.3);
+
+  /* Interactive states */
+  --hover-overlay: rgba(255,255,255,0.03);
+  --active-overlay: rgba(255,255,255,0.06);
+  --focus-ring: rgba(0, 114, 255, 0.4);
+}
+
+/* ===========================
+   Page Foundation
+   =========================== */
+.theme-premium-black body,
+.theme-premium-black .min-h-screen {
+  background: var(--bg-page) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Subtle ambient lighting - Navy tint in selected areas only */
+.theme-premium-black .ambient-vignette::before {
+  background: 
+    radial-gradient(circle at 25% 20%, rgba(0, 114, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 75% 80%, rgba(0, 198, 255, 0.03) 0%, transparent 50%) !important;
+}
+
+/* ===========================
+   Cards & Panels - Glassmorphism
+   =========================== */
+.theme-premium-black .glass-card,
+.theme-premium-black .apple-card,
+.theme-premium-black .soft-press,
+.theme-premium-black [class*="card"],
+.theme-premium-black .auth-card {
+  position: relative;
+  isolation: isolate;
+  background: rgb(var(--card-rgb) / var(--card-alpha)) !important;
+  backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  border: 1px solid var(--border-weak) !important;
+  border-radius: 16px !important;
+  color: var(--text-primary) !important;
+  
+  /* Soft neutral shadows - no blue glow */
+  box-shadow: 
+    0 4px 12px var(--glass-shadow),
+    0 1px 3px rgba(0,0,0,0.5),
+    inset 0 1px 0 var(--glass-highlight) !important;
+}
+
+/* Remove conflicting filters and glows */
+.theme-premium-black .glass-card *,
+.theme-premium-black .apple-card *,
+.theme-premium-black .soft-press * {
+  filter: none !important;
+}
+
+/* Hide glow backdrop elements */
+.theme-premium-black .absolute.inset-0.rounded-2xl.blur-xl,
+.theme-premium-black .absolute.inset-0.bg-blue-500\/8,
+.theme-premium-black .absolute.inset-0.bg-purple-500\/8,
+.theme-premium-black .absolute.inset-0.bg-emerald-500\/8 {
+  display: none !important;
+}
+
+/* ===========================
+   Navigation - Sidebar & Header
+   =========================== */
+.theme-premium-black .sidebar {
+  background: rgb(var(--card-rgb) / var(--card-alpha)) !important;
+  backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  border-right: 1px solid var(--border-weak) !important;
+}
+
+.theme-premium-black .glass-surface {
+  background: rgb(var(--card-rgb) / 0.9) !important;
+  backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(130%) !important;
+  border-bottom: 1px solid var(--border-weak) !important;
+}
+
+/* ===========================
+   Typography - Consistent Contrast
+   =========================== */
+.theme-premium-black,
+.theme-premium-black * {
+  color: var(--text-primary) !important;
+}
+
+.theme-premium-black h1,
+.theme-premium-black h2,
+.theme-premium-black h3,
+.theme-premium-black h4,
+.theme-premium-black h5,
+.theme-premium-black h6 {
+  color: var(--text-primary) !important;
+}
+
+.theme-premium-black .text-secondary,
+.theme-premium-black .text-muted,
+.theme-premium-black .text-muted-foreground {
+  color: var(--text-muted) !important;
+}
+
+/* Fix dark-on-dark text issues */
+.theme-premium-black .text-gray-900,
+.theme-premium-black .text-gray-800,
+.theme-premium-black .text-gray-700,
+.theme-premium-black .text-black {
+  color: var(--text-primary) !important;
+}
+
+.theme-premium-black .text-gray-600,
+.theme-premium-black .text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+.theme-premium-black .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+/* ===========================
+   Interactive Elements - Gradient Blue Accent
+   =========================== */
+.theme-premium-black button[type="submit"],
+.theme-premium-black .btn-primary,
+.theme-premium-black .bg-primary {
+  background: var(--accent-gradient) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--border-medium) !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 114, 255, 0.25),
+    inset 0 1px 0 rgba(255,255,255,0.15) !important;
+}
+
+.theme-premium-black button[type="submit"]:hover,
+.theme-premium-black .btn-primary:hover,
+.theme-premium-black .bg-primary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 16px rgba(0, 114, 255, 0.3),
+    inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+
+/* Links and accents */
+.theme-premium-black a,
+.theme-premium-black .text-primary {
+  color: var(--accent-blue-end) !important;
+}
+
+.theme-premium-black a:hover {
+  color: var(--accent-blue-start) !important;
+}
+
+/* Active states */
+.theme-premium-black .bg-blue-50,
+.theme-premium-black .bg-gray-50 {
+  background: var(--accent-blue-subtle) !important;
+}
+
+.theme-premium-black .text-blue-600 {
+  color: var(--accent-blue-end) !important;
+}
+
+/* ===========================
+   Form Elements
+   =========================== */
+.theme-premium-black input,
+.theme-premium-black textarea,
+.theme-premium-black select {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--border-medium) !important;
+  color: var(--text-primary) !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+.theme-premium-black input::placeholder,
+.theme-premium-black textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.theme-premium-black input:focus,
+.theme-premium-black textarea:focus,
+.theme-premium-black select:focus {
+  border-color: var(--accent-blue-start) !important;
+  box-shadow: 
+    inset 0 1px 2px rgba(0,0,0,0.3),
+    0 0 0 2px var(--focus-ring) !important;
+  outline: none !important;
+}
+
+.theme-premium-black label {
+  color: var(--text-primary) !important;
+}
+
+/* ===========================
+   Dropdowns & Popovers
+   =========================== */
+.theme-premium-black .dropdown-menu,
+.theme-premium-black [data-radix-popper-content-wrapper] {
+  background: rgb(var(--card-rgb) / var(--card-alpha)) !important;
+  backdrop-filter: blur(var(--blur)) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) !important;
+  border: 1px solid var(--border-medium) !important;
+  box-shadow: 0 8px 24px var(--glass-shadow) !important;
+  border-radius: 12px !important;
+}
+
+/* ===========================
+   Badges & Status Indicators
+   =========================== */
+.theme-premium-black .badge,
+.theme-premium-black [class*="badge"] {
+  background: var(--accent-blue-subtle) !important;
+  color: var(--accent-blue-end) !important;
+  border: 1px solid var(--accent-blue-medium) !important;
+}
+
+.theme-premium-black .bg-emerald-500\/10 {
+  background: rgba(16, 185, 129, 0.15) !important;
+}
+
+.theme-premium-black .text-emerald-400 {
+  color: #34d399 !important;
+}
+
+.theme-premium-black .border-emerald-500\/20 {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+/* ===========================
+   Progress & Data Visualization
+   =========================== */
+.theme-premium-black .accent-progress {
+  background: var(--accent-gradient) !important;
+}
+
+/* ===========================
+   Hover & Interactive States
+   =========================== */
+.theme-premium-black .hover\:bg-gray-50:hover,
+.theme-premium-black .hover\:bg-gray-100:hover {
+  background: var(--hover-overlay) !important;
+}
+
+.theme-premium-black .hover\:bg-white\/5:hover,
+.theme-premium-black .hover\:bg-white\/10:hover {
+  background: var(--hover-overlay) !important;
+}
+
+/* Remove scale animations that conflict with the premium aesthetic */
+.theme-premium-black .hover\:scale-\[1\.02\]:hover {
+  transform: none !important;
+}
+
+/* ===========================
+   Performance & Mobile Optimizations
+   =========================== */
+@media (max-width: 640px) {
+  .theme-premium-black {
+    --blur: var(--blur-mobile);
+  }
+}
+
+/* Graceful fallback for browsers without backdrop-filter support */
+@supports not ((backdrop-filter: blur(1px))) {
+  .theme-premium-black .glass-card,
+  .theme-premium-black .apple-card,
+  .theme-premium-black .soft-press,
+  .theme-premium-black .auth-card {
+    background: rgba(18, 18, 22, 0.95) !important;
+  }
+}
+
+/* ===========================
+   Remove Motion for Accessibility
+   =========================== */
+@media (prefers-reduced-motion: reduce) {
+  .theme-premium-black * {
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}

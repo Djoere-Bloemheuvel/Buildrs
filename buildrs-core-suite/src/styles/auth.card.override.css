@@ -1,0 +1,64 @@
+
+
+
+:root {
+  /* tunables */
+  --card-black-rgb: 10 12 16;   /* ~#0a0c10 (neutral black, no green/cyan tint) */
+  --card-alpha: 0.35;           /* reduced from 0.45 for even more transparency */
+  --glass-blur: 18px;
+  --border-alpha: 0.08;
+  --umbra: 0.50;                /* small dark shadow */
+  --penumbra: 0.60;             /* big soft shadow */
+}
+
+/* Kill any stray filters that wash/tint the card */
+body.auth-route .auth-card,
+body.auth-route .auth-card * {
+  filter: none !important;
+}
+
+/* FORCE the card to be darker/black + translucent (wins cascade) */
+body.auth-route .auth-card,
+body.auth-route .auth-card.deep-card {
+  background: rgb(var(--card-black-rgb) / var(--card-alpha)) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid rgb(255 255 255 / var(--border-alpha));
+  box-shadow:
+    0 3px 10px rgba(0,0,0,var(--umbra)),
+    0 22px 60px rgba(0,0,0,var(--penumbra)); /* neutral depth, no colored halo */
+  position: relative;
+  isolation: isolate;
+  color: #fff;
+}
+
+/* Neutralize/retune overlays so they don't re-tint the card */
+body.auth-route .auth-card::before {
+  /* keep subtle inner highlight for glass thickness, but no color cast */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  box-shadow: inset 0 0 0 .5px rgba(255,255,255,0.28);
+  opacity: .18;
+}
+body.auth-route .auth-card::after {
+  /* remove previous blue/green ambient leak around the card itself */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 55%);
+  mix-blend-mode: screen;
+  opacity: .55;
+}
+
+/* Inputs keep their current size/spacing; ensure legibility on darker glass */
+body.auth-route .auth-card input {
+  color:#fff;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+body.auth-route .auth-card ::placeholder { color: rgba(255,255,255,0.56); }
+
+/* Mobile perf guard + graceful fallback */
+@media (max-width:640px){ :root{ --glass-blur:14px } }
+@supports not ((backdrop-filter: blur(1px))){
+  body.auth-route .auth-card { background: rgba(14,16,20,0.92) !important; }
+}
+
+

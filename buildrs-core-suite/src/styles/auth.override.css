@@ -1,0 +1,120 @@
+
+
+:root {
+  --auth-bg-page: #0b0f14;
+  --auth-card-rgb: 17, 24, 32; /* #111820 */
+  --auth-card-alpha: 0.96;
+  --auth-glass-blur: 18px;
+  --auth-border-alpha: 0.08;
+  --auth-glow-color: rgba(20, 40, 80, 0.55);
+}
+
+/* Premium micro-polish variables */
+:root {
+  --bg-page: #0b0f14;
+  --card-rgb: 17 24 32;       /* #111820 */
+  --card-alpha: 0.58;         /* 0.56–0.62 fine range */
+  --blur: 18px;
+  --stroke-alpha: 0.10;       /* outer stroke */
+  --hairline-alpha: 0.35;     /* hairline for retina crispness */
+  --highlight-alpha: 0.06;    /* top highlight inside */
+  --shadow-umbra: 0.52;       /* small dark */
+  --shadow-pen: 0.60;         /* big soft */
+  --glow-rgb: 20 40 80;       /* NO green tint – deep navy glow */
+  --glow-alpha: 0.38;         /* outer glow intensity */
+}
+
+/* Page background stays deep black */
+body.auth-route {
+  background-color: var(--bg-page) !important;
+}
+
+/* Kill stray filters/overlays that add white/green haze */
+body.auth-route .auth-card,
+body.auth-route .auth-card * {
+  filter: none !important;
+}
+
+/* Card base + depth (wins cascade) */
+body.auth-route .auth-card,
+body.auth-route .auth-card.deep-card {
+  position: relative;
+  isolation: isolate;
+  background: rgb(var(--card-rgb) / var(--card-alpha)) !important;
+  backdrop-filter: blur(var(--blur)) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(150%) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgb(255 255 255 / var(--stroke-alpha)) !important;
+  /* Dual elevation + navy glow (no cyan/green) */
+  box-shadow:
+    0 3px 10px rgba(0,0,0,var(--shadow-umbra)),
+    0 22px 60px rgba(0,0,0,var(--shadow-pen)),
+    0 0 48px rgb(var(--glow-rgb) / var(--glow-alpha)) !important;
+  z-index: 1;
+}
+
+/* Retina hairline to make border look crisp without thickening */
+body.auth-route .auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 0.5px rgba(255,255,255,var(--hairline-alpha));
+  opacity: 0.18; /* subtle */
+}
+
+/* Soft top highlight inside the glass for "thickness" */
+body.auth-route .auth-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,var(--highlight-alpha)) 0%,
+    rgba(255,255,255,0) 55%);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+/* Buttons keep blue; give them a tiny inner bevel for tactility (no size change) */
+body.auth-route .auth-card .btn-primary,
+body.auth-route .auth-card button[type="submit"] {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 6px 18px rgba(20,40,80,0.35) !important;
+}
+
+/* Inputs: keep subtle 3D, but neutralize any warm tint */
+body.auth-route .auth-card input {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    inset 0 -1px 0 rgba(0,0,0,0.28) !important;
+}
+
+body.auth-route .auth-card input:focus {
+  border-color: rgba(80,120,255,0.45) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    inset 0 -1px 0 rgba(0,0,0,0.32),
+    0 0 0 2px rgba(80,120,255,0.22),
+    0 0 0 4px rgba(120,160,255,0.12) !important;
+}
+
+/* Mobile performance guard */
+@media (max-width: 640px) {
+  :root {
+    --blur: 14px;
+  }
+}
+
+/* Fallback when backdrop-filter is unsupported */
+@supports not ((backdrop-filter: blur(1px))) {
+  body.auth-route .auth-card {
+    background: rgba(18,22,28,0.92) !important;
+  }
+}
+

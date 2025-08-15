@@ -1,0 +1,314 @@
+
+/* Premium Jet Black Theme - Off-black with deep blue accents inspired by auth pages */
+:root.premium-jet-black {
+  /* Premium Jet Black color palette - Off-black with blue undertones */
+  --jet-black-bg-page: #080A0F;            /* Off-black with subtle blue tint */
+  --jet-black-card-rgb: 12 16 25;          /* #0C1019 - Dark blue-tinted cards */
+  --jet-black-card-alpha: 0.85;            /* Semi-transparent like auth pages */
+  --jet-black-blur: 16px;                  /* Strong blur like auth */
+  --jet-black-accent-start: #1E3A8A;       /* Deep blue accent start */
+  --jet-black-accent-end: #3B82F6;         /* Brighter blue accent end */
+  --jet-black-accent-gradient: linear-gradient(90deg, var(--jet-black-accent-start), var(--jet-black-accent-end));
+  --jet-black-text-primary: #FAFAFA;       /* Near-white text */
+  --jet-black-text-secondary: #E5E7EB;     /* Light gray text */
+  --jet-black-text-muted: #9CA3AF;         /* Muted gray text */
+  --jet-black-border-radius: 16px;         /* Auth-inspired rounded corners */
+  
+  /* Override default theme colors */
+  --background: var(--jet-black-bg-page);
+  --foreground: var(--jet-black-text-primary);
+  --muted: #1F2937;
+  --muted-foreground: var(--jet-black-text-muted);
+  --card: rgb(var(--jet-black-card-rgb) / var(--jet-black-card-alpha));
+  --card-foreground: var(--jet-black-text-primary);
+  --border: rgba(30, 58, 138, 0.15);       /* Subtle dark blue borders */
+  --input: rgba(30, 58, 138, 0.08);        /* Dark blue tinted inputs */
+  --accent: #0F172A;
+  --accent-foreground: var(--jet-black-text-primary);
+  --primary: 220 100% 55%;                 /* Deep blue primary */
+  --primary-foreground: #ffffff;
+  --secondary: 225 15% 20%;
+  --secondary-foreground: var(--jet-black-text-primary);
+}
+
+/* Off-black page background with subtle blue gradient */
+.premium-jet-black {
+  background: linear-gradient(135deg, #080A0F 0%, #0A0D14 50%, #080A0F 100%) !important;
+}
+
+/* Ambient subtle blue glow like auth pages */
+.premium-jet-black .ambient-vignette::before {
+  background: 
+    radial-gradient(circle at 25% 35%, rgba(30, 58, 138, 0.04) 0%, transparent 60%),
+    radial-gradient(circle at 75% 65%, rgba(59, 130, 246, 0.02) 0%, transparent 60%) !important;
+}
+
+/* Cards - Auth-inspired glass morphism with blue tints */
+.premium-jet-black .glass-card,
+.premium-jet-black .apple-card,
+.premium-jet-black .soft-press {
+  background: rgb(var(--jet-black-card-rgb) / var(--jet-black-card-alpha)) !important;
+  border-radius: var(--jet-black-border-radius) !important;
+  backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  border: 1px solid rgba(30, 58, 138, 0.15) !important;
+  color: var(--jet-black-text-primary) !important;
+  /* Soft shadow without glow, like auth pages */
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Enhanced card hover effects */
+.premium-jet-black .glass-card:hover,
+.premium-jet-black .apple-card:hover,
+.premium-jet-black .soft-press:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(30, 58, 138, 0.25) !important;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Sidebar and Header - Auth-inspired styling */
+.premium-jet-black .sidebar {
+  background: rgb(var(--jet-black-card-rgb) / 0.9) !important;
+  backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  border-right: 1px solid rgba(30, 58, 138, 0.15) !important;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.premium-jet-black .glass-surface {
+  background: rgb(var(--jet-black-card-rgb) / 0.85) !important;
+  backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(var(--jet-black-blur)) saturate(140%) !important;
+  border-bottom: 1px solid rgba(30, 58, 138, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Typography - High contrast like auth pages */
+.premium-jet-black,
+.premium-jet-black * {
+  color: var(--jet-black-text-primary) !important;
+}
+
+.premium-jet-black h1,
+.premium-jet-black h2,
+.premium-jet-black h3,
+.premium-jet-black h4,
+.premium-jet-black h5,
+.premium-jet-black h6 {
+  color: var(--jet-black-text-primary) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+.premium-jet-black .text-secondary,
+.premium-jet-black .text-muted,
+.premium-jet-black .text-muted-foreground {
+  color: var(--jet-black-text-muted) !important;
+}
+
+.premium-jet-black .text-gray-900,
+.premium-jet-black .text-gray-800,
+.premium-jet-black .text-gray-700,
+.premium-jet-black .text-black {
+  color: var(--jet-black-text-primary) !important;
+}
+
+.premium-jet-black .text-gray-600,
+.premium-jet-black .text-gray-500 {
+  color: var(--jet-black-text-secondary) !important;
+}
+
+.premium-jet-black .text-gray-400 {
+  color: var(--jet-black-text-muted) !important;
+}
+
+/* Deep Blue Gradient Buttons - Auth-inspired */
+.premium-jet-black button[type="submit"],
+.premium-jet-black .btn-primary,
+.premium-jet-black .bg-primary {
+  background: var(--jet-black-accent-gradient) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 
+    0 4px 16px rgba(30, 58, 138, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.premium-jet-black button[type="submit"]:hover,
+.premium-jet-black .btn-primary:hover,
+.premium-jet-black .bg-primary:hover {
+  filter: brightness(1.1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 
+    0 6px 20px rgba(30, 58, 138, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Input styling - Auth-inspired dark inputs */
+.premium-jet-black input,
+.premium-jet-black textarea,
+.premium-jet-black select {
+  background: rgba(30, 58, 138, 0.08) !important;
+  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  color: var(--jet-black-text-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+
+.premium-jet-black input::placeholder,
+.premium-jet-black textarea::placeholder {
+  color: var(--jet-black-text-muted) !important;
+}
+
+.premium-jet-black input:focus,
+.premium-jet-black textarea:focus,
+.premium-jet-black select:focus {
+  border-color: var(--jet-black-accent-start) !important;
+  box-shadow: 
+    0 0 0 2px rgba(30, 58, 138, 0.3),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  outline: none !important;
+}
+
+/* Labels */
+.premium-jet-black label {
+  color: var(--jet-black-text-primary) !important;
+}
+
+/* Dropdowns - High contrast with auth-inspired blur */
+.premium-jet-black .dropdown-menu,
+.premium-jet-black [data-radix-popper-content-wrapper] {
+  background: rgb(var(--jet-black-card-rgb) / 0.95) !important;
+  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  box-shadow: 
+    0 16px 64px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(var(--jet-black-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--jet-black-blur)) !important;
+  border-radius: 12px !important;
+  z-index: 1000 !important;
+}
+
+/* Active states - Deep blue accent */
+.premium-jet-black .bg-blue-50,
+.premium-jet-black .bg-gray-50 {
+  background: rgba(30, 58, 138, 0.12) !important;
+}
+
+.premium-jet-black .text-blue-600 {
+  color: var(--jet-black-accent-end) !important;
+}
+
+/* Badges - Deep blue accent */
+.premium-jet-black .badge,
+.premium-jet-black [class*="badge"] {
+  background: rgba(30, 58, 138, 0.15) !important;
+  color: var(--jet-black-accent-end) !important;
+  border: 1px solid rgba(30, 58, 138, 0.25) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.premium-jet-black .bg-emerald-500\/10 {
+  background: rgba(16, 185, 129, 0.15) !important;
+}
+
+.premium-jet-black .text-emerald-400 {
+  color: #34d399 !important;
+}
+
+.premium-jet-black .border-emerald-500\/20 {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Links - Deep blue accent */
+.premium-jet-black a,
+.premium-jet-black .text-primary {
+  color: var(--jet-black-accent-end) !important;
+}
+
+.premium-jet-black a:hover {
+  filter: brightness(1.1) !important;
+  transition: filter 0.2s ease !important;
+}
+
+/* Progress bars - Deep blue gradient */
+.premium-jet-black .accent-progress {
+  background: var(--jet-black-accent-gradient) !important;
+}
+
+/* Tables */
+.premium-jet-black table {
+  border-color: rgba(30, 58, 138, 0.15) !important;
+}
+
+.premium-jet-black th {
+  color: var(--jet-black-text-primary) !important;
+  border-color: rgba(30, 58, 138, 0.15) !important;
+}
+
+.premium-jet-black td {
+  color: var(--jet-black-text-secondary) !important;
+  border-color: rgba(30, 58, 138, 0.08) !important;
+}
+
+/* Focus states */
+.premium-jet-black button:focus,
+.premium-jet-black .btn:focus {
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.4) !important;
+  outline: none !important;
+}
+
+/* Checkbox and Radio */
+.premium-jet-black input[type="checkbox"]:checked,
+.premium-jet-black input[type="radio"]:checked {
+  background: var(--jet-black-accent-gradient) !important;
+  border-color: var(--jet-black-accent-start) !important;
+}
+
+/* Select highlight */
+.premium-jet-black [data-selected] {
+  background: rgba(30, 58, 138, 0.12) !important;
+  color: var(--jet-black-accent-end) !important;
+}
+
+/* Remove any glow effects to maintain auth-inspired clean look */
+.premium-jet-black .shadow-glow,
+.premium-jet-black .glow-effect,
+.premium-jet-black [class*="glow"] {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* Clean transitions */
+.premium-jet-black .transition-all {
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease !important;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .premium-jet-black .glass-card,
+  .premium-jet-black .card {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .premium-jet-black * {
+    transform: none !important;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
+    animation: none !important;
+  }
+}
