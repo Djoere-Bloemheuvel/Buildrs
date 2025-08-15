@@ -1784,25 +1784,31 @@ async function classifyFunctionGroupsBatch(jobTitles: string[]): Promise<string[
     "Customer Success & Support Decision Makers"
   ];
   
-  const prompt = `De volgende functiegroepen zijn gedefinieerd:
+  const prompt = `Je bent een expert in het classificeren van functietitels naar besluitvormingsgroepen. Analyseer elke functietitel zeer zorgvuldig en kies de MEEST SPECIFIEKE en ACCURATE groep.
 
-1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf. Deze rol is meestal verantwoordelijk voor de strategische richting van het bedrijf.
-2. **Marketing Decision Makers**: Personen die verantwoordelijk zijn voor marketingstrategie, campagnes en merkontwikkeling. Denk aan CMO's, Marketing Managers, enz.
-3. **Sales Decision Makers**: Personen die de verkoopstrategie, verkoopteams en klantrelaties beheren. Dit omvat Sales Directors, Account Executives, enzovoort.
-4. **Business Development Decision Makers**: Leiders binnen business development en strategische groei, zoals Business Development Managers, Partnerships Managers, enz.
-5. **Operational Decision Makers**: Personen die verantwoordelijk zijn voor de dagelijkse bedrijfsvoering, zoals COO's, Operations Managers, Supply Chain Managers, enz.
-6. **Technical Decision Makers**: Personen die de technische richting van het bedrijf bepalen, zoals CTO's, product managers, of lead developers.
-7. **Financial Decision Makers**: Personen die verantwoordelijk zijn voor de financiële gezondheid van het bedrijf, zoals CFO's en Controllers.
-8. **HR Decision Makers**: Personen die verantwoordelijk zijn voor personeelsbeleid, recruitment en organisatiecultuur, zoals HR Managers, People Operations Managers, enz.
-9. **Product & Innovation Decision Makers**: Personen die verantwoordelijk zijn voor productontwikkeling en innovatie binnen het bedrijf.
-10. **Customer Success & Support Decision Makers**: Personen die klanttevredenheid en -ondersteuning beheren, zoals Customer Success Managers, Support Managers, enz.
+FUNCTIEGROEPEN:
 
-Classificeer de volgende functietitels naar de best passende groep. Geef voor elke titel ALLEEN de functiegroep naam terug (geen uitleg). Een regel per titel.
+1. **Owner/Founder**: CEO's, oprichters, eigenaren, directeuren-eigenaar
+2. **Technical Decision Makers**: CTO's, lead developers, software engineers, product managers, IT directors
+3. **Sales Decision Makers**: Sales directors, account executives, sales managers, commercial directors
+4. **Financial Decision Makers**: CFO's, controllers, finance directors, financial managers
+5. **Operational Decision Makers**: COO's, operations managers, supply chain, logistics managers
+6. **HR Decision Makers**: HR managers, people operations, recruitment managers, talent acquisition
+7. **Marketing Decision Makers**: CMO's, marketing managers, brand managers, content managers
+8. **Business Development Decision Makers**: BD managers, partnership managers, growth managers
+9. **Product & Innovation Decision Makers**: Product development, innovation managers, R&D directors
+10. **Customer Success & Support Decision Makers**: Customer success managers, support directors, client managers
 
-Functietitels:
+FUNCTIETITELS:
 ${jobTitles.map((title, index) => `${index + 1}. ${title}`).join('\n')}
 
-Antwoorden (een functiegroep per regel):`;
+INSTRUCTIES:
+- Analyseer ALLE woorden in elke functietitel
+- Kies de MEEST SPECIFIEKE groep voor elke titel
+- Bij twijfel, kies degene die het MEEST direct gerelateerd is
+- Geef ALLEEN de exacte groepnaam per regel terug
+
+ANTWOORDEN (een functiegroep per regel):`;
 
   try {
     console.log(`🤖 Sending ${jobTitles.length} job titles to OpenAI for batch classification...`);
@@ -1817,6 +1823,10 @@ Antwoorden (een functiegroep per regel):`;
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages: [
+          {
+            role: 'system',
+            content: 'Je bent een precisie-expert in functie classificatie. Analyseer elke functietitel objectief zonder bias. Wees zeer specifiek en accuraat. Vermijd standaard keuzes zoals "Marketing" tenzij de titel duidelijk marketing-gerelateerd is.',
+          },
           {
             role: 'user',
             content: prompt,
@@ -1885,23 +1895,30 @@ async function classifyFunctionGroup(jobTitle: string): Promise<string> {
     "Customer Success & Support Decision Makers"
   ];
   
-  const prompt = `De volgende functiegroepen zijn gedefinieerd:
+  const prompt = `Je bent een expert in het classificeren van functietitels naar besluitvormingsgroepen. Analyseer de volgende functietitel zeer zorgvuldig en kies de MEEST SPECIFIEKE en ACCURATE groep.
 
-1. **Owner/Founder**: Oprichters en eigenaren van het bedrijf. Deze rol is meestal verantwoordelijk voor de strategische richting van het bedrijf.
-2. **Marketing Decision Makers**: Personen die verantwoordelijk zijn voor marketingstrategie, campagnes en merkontwikkeling. Denk aan CMO's, Marketing Managers, enz.
-3. **Sales Decision Makers**: Personen die de verkoopstrategie, verkoopteams en klantrelaties beheren. Dit omvat Sales Directors, Account Executives, enzovoort.
-4. **Business Development Decision Makers**: Leiders binnen business development en strategische groei, zoals Business Development Managers, Partnerships Managers, enz.
-5. **Operational Decision Makers**: Personen die verantwoordelijk zijn voor de dagelijkse bedrijfsvoering, zoals COO's, Operations Managers, Supply Chain Managers, enz.
-6. **Technical Decision Makers**: Personen die de technische richting van het bedrijf bepalen, zoals CTO's, product managers, of lead developers.
-7. **Financial Decision Makers**: Personen die verantwoordelijk zijn voor de financiële gezondheid van het bedrijf, zoals CFO's en Controllers.
-8. **HR Decision Makers**: Personen die verantwoordelijk zijn voor personeelsbeleid, recruitment en organisatiecultuur, zoals HR Managers, People Operations Managers, enz.
-9. **Product & Innovation Decision Makers**: Personen die verantwoordelijk zijn voor productontwikkeling en innovatie binnen het bedrijf.
-10. **Customer Success & Support Decision Makers**: Personen die klanttevredenheid en -ondersteuning beheren, zoals Customer Success Managers, Support Managers, enz.
+FUNCTIEGROEPEN:
 
-Dit is de functie titel "${jobTitle}"
+1. **Owner/Founder**: CEO's, oprichters, eigenaren, directeuren-eigenaar
+2. **Technical Decision Makers**: CTO's, lead developers, software engineers, product managers, IT directors
+3. **Sales Decision Makers**: Sales directors, account executives, sales managers, commercial directors
+4. **Financial Decision Makers**: CFO's, controllers, finance directors, financial managers
+5. **Operational Decision Makers**: COO's, operations managers, supply chain, logistics managers
+6. **HR Decision Makers**: HR managers, people operations, recruitment managers, talent acquisition
+7. **Marketing Decision Makers**: CMO's, marketing managers, brand managers, content managers
+8. **Business Development Decision Makers**: BD managers, partnership managers, growth managers
+9. **Product & Innovation Decision Makers**: Product development, innovation managers, R&D directors
+10. **Customer Success & Support Decision Makers**: Customer success managers, support directors, client managers
 
----
-Kies altijd de **best passende** groep. Geen uitleg. Geen dubbele labels. Geef alleen de functiegroep.`;
+FUNCTIETITEL: "${jobTitle}"
+
+INSTRUCTIES:
+- Analyseer ALLE woorden in de functietitel
+- Kies de MEEST SPECIFIEKE groep (bijvoorbeeld: "Software Engineer" = Technical, niet Marketing)
+- Bij twijfel tussen twee groepen, kies degene die het MEEST direct gerelateerd is
+- Geef ALLEEN de exacte groepnaam terug, geen uitleg
+
+ANTWOORD:`;
 
   try {
     // Use OpenAI API for classification
@@ -1914,6 +1931,10 @@ Kies altijd de **best passende** groep. Geen uitleg. Geen dubbele labels. Geef a
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages: [
+          {
+            role: 'system',
+            content: 'Je bent een precisie-expert in functie classificatie. Analyseer elke functietitel objectief zonder bias. Wees zeer specifiek en accuraat. Vermijd standaard keuzes zoals "Marketing" tenzij de titel duidelijk marketing-gerelateerd is.',
+          },
           {
             role: 'user',
             content: prompt,
@@ -1960,7 +1981,14 @@ Kies altijd de **best passende** groep. Geen uitleg. Geen dubbele labels. Geef a
     return "Operational Decision Makers";
   }
   
-  return "Marketing Decision Makers"; // Default fallback
+  // Meer neutrale fallback gebaseerd op seniority
+  if (title.includes('director') || title.includes('head') || title.includes('lead')) {
+    return "Operational Decision Makers"; // Directors zijn meestal operationeel
+  } else if (title.includes('manager') || title.includes('coordinator')) {
+    return "Operational Decision Makers"; // Managers zijn meestal operationeel
+  }
+  
+  return "Operational Decision Makers"; // Neutrale fallback
 }
 
 
@@ -1983,9 +2011,17 @@ export const checkCompanyExists = query({
   args: { domain: v.string() },
   returns: v.union(v.object({ _id: v.id("companies") }), v.null()),
   handler: async (ctx, { domain }) => {
+    if (!domain || domain.trim() === '') return null;
+    
+    // Normalize domain to prevent duplicates
+    const normalizedDomain = domain.toLowerCase().trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0]; // Remove path if present
+    
     const company = await ctx.db
       .query("companies")
-      .filter((q) => q.eq(q.field("domain"), domain))
+      .filter((q) => q.eq(q.field("domain"), normalizedDomain))
       .first();
     
     // Return only the _id field as expected by the validator
@@ -2075,9 +2111,31 @@ export const createCompany = mutation({
     // Parse companySize to ensure it's a number
     const parsedCompanySize = parseNumber(companyData.companySize);
     
+    // Normalize domain before saving to prevent duplicates
+    let normalizedDomain = companyData.domain;
+    if (normalizedDomain) {
+      normalizedDomain = normalizedDomain.toLowerCase().trim()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0]; // Remove path if present
+    }
+    
+    // DUPLICATE CHECK: Last resort check before insert
+    if (normalizedDomain) {
+      const existingCompany = await ctx.db
+        .query("companies")
+        .filter((q) => q.eq(q.field("domain"), normalizedDomain))
+        .first();
+      
+      if (existingCompany) {
+        console.log(`⚠️ Prevented duplicate company creation for domain: ${normalizedDomain}`);
+        return existingCompany._id;
+      }
+    }
+    
     return await ctx.db.insert("companies", {
       name: companyData.name || "Unknown Company",
-      domain: companyData.domain,
+      domain: normalizedDomain,
       website: companyData.website,
       scrapedIndustry: companyData.scrapedIndustry,
       companySize: parsedCompanySize,
