@@ -104,12 +104,12 @@ export const processApolloData = action({
       console.log(`🔄 Batch ${batchNum}/${totalBatches} (${progressPercent}%) - Processing ${batch.length} entries`);
       console.log(`📊 Current stats: ${contactsCreated} created, ${duplicatesSkipped} duplicates, ${filteredOut} filtered`);
       
-      // 8. 🔧 ERROR RECOVERY - Process each entry with individual ChatGPT calls
+      // 8. 🔧 ERROR RECOVERY - Process each entry with keyword-based classification
       for (let j = 0; j < batch.length; j++) {
         const entry = batch[j];
         
         try {
-          // Elke contact krijgt individuele ChatGPT classificatie binnen processApolloEntry
+          // Elke contact krijgt keyword-based classificatie binnen processApolloEntry
           const processedContact = await processApolloEntry(ctx, entry, clientId);
           
           if (processedContact.action === 'created') {
@@ -435,25 +435,16 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
   // Website is already validated in strict filtering above
   const websiteValid = true; // We know it's valid because we passed the filter
   
-  // 4. 🤖 GPT-5-MINI FUNCTION GROUP CLASSIFICATION per lead
+  // 4. 📋 KEYWORD-BASED FUNCTION GROUP CLASSIFICATION
   let functionGroup = undefined;
   if (contactData.jobTitle) {
-    console.log(`🤖 Classifying function group for job title: ${contactData.jobTitle}`);
-    
-    try {
-      // Use GPT-5-mini for each individual lead's job title
-      functionGroup = await classifyFunctionGroup(contactData.jobTitle);
-      console.log(`✅ GPT-5-mini classified "${contactData.jobTitle}" as: ${functionGroup}`);
-    } catch (error) {
-      console.error(`❌ GPT-5-mini classification failed for "${contactData.jobTitle}":`, error);
-      // NO FALLBACK - AI output velden blijven leeg als ChatGPT faalt
-      functionGroup = undefined;
-      console.log(`⚠️ Function group blijft leeg - alleen ChatGPT mag dit vullen`);
-    }
+    console.log(`📋 Classifying function group for job title: ${contactData.jobTitle}`);
+    functionGroup = classifyFunctionGroupKeywords(contactData.jobTitle);
+    console.log(`✅ Classified "${contactData.jobTitle}" as: ${functionGroup}`);
   } else {
-    // No job title - leave undefined (AI output velden blijven leeg)
-    functionGroup = undefined;
-    console.log(`⚠️ No job title provided, function group blijft leeg`);
+    // No job title - use default
+    functionGroup = "Operational Decision Makers";
+    console.log(`⚠️ No job title provided, using default: ${functionGroup}`);
   }
   
   // 5. Check/create company - SMART EMAIL DOMAIN LINKING
@@ -565,11 +556,11 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
     console.log(`⚠️ No company created/linked for contact: ${contactData.firstName} ${contactData.lastName}`);
   }
   
-  // 6. Create contact met ALLE velden
+  // 6. Create contact met ALLE velden (normalize email)
   const contactId = await ctx.runMutation(internal.apolloProcessor.createContact, {
     firstName: contactData.firstName,
     lastName: contactData.lastName,
-    email: contactData.email,
+    email: contactData.email?.toLowerCase().trim(),
     mobilePhone: contactData.mobilePhone,
     linkedinUrl: contactData.linkedinUrl,
     jobTitle: contactData.jobTitle,
@@ -592,7 +583,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
       companyId: companyId,
       firstName: contactData.firstName,
       lastName: contactData.lastName,
-      email: contactData.email,
+      email: contactData.email?.toLowerCase().trim(),
       mobilePhone: contactData.mobilePhone,
       linkedinUrl: contactData.linkedinUrl,
       jobTitle: contactData.jobTitle,
@@ -1769,226 +1760,19 @@ function classifyFunctionGroupKeywords(jobTitle: string): string {
   return "Marketing Decision Makers";
 }
 
-// BATCH OpenAI API CALLS - Process multiple job titles at once
-async function classifyFunctionGroupsBatch(jobTitles: string[]): Promise<string[]> {
-  const functionGroups = [
-    "Owner/Founder",
-    "Marketing Decision Makers", 
-    "Sales Decision Makers",
-    "Business Development Decision Makers",
-    "Operational Decision Makers",
-    "Technical Decision Makers",
-    "Financial Decision Makers",
-    "HR Decision Makers",
-    "Product & Innovation Decision Makers",
-    "Customer Success & Support Decision Makers"
-  ];
+// BATCH KEYWORD CLASSIFICATION - Process multiple job titles at once
+function classifyFunctionGroupsBatch(jobTitles: string[]): string[] {
+  console.log(`📋 Processing ${jobTitles.length} job titles with keyword-based classification...`);
   
-  const prompt = `Je bent een expert in het classificeren van functietitels naar besluitvormingsgroepen. Analyseer elke functietitel zeer zorgvuldig en kies de MEEST SPECIFIEKE en ACCURATE groep.
-
-FUNCTIEGROEPEN:
-
-1. **Owner/Founder**: CEO's, oprichters, eigenaren, directeuren-eigenaar
-2. **Technical Decision Makers**: CTO's, lead developers, software engineers, product managers, IT directors
-3. **Sales Decision Makers**: Sales directors, account executives, sales managers, commercial directors
-4. **Financial Decision Makers**: CFO's, controllers, finance directors, financial managers
-5. **Operational Decision Makers**: COO's, operations managers, supply chain, logistics managers
-6. **HR Decision Makers**: HR managers, people operations, recruitment managers, talent acquisition
-7. **Marketing Decision Makers**: CMO's, marketing managers, brand managers, content managers
-8. **Business Development Decision Makers**: BD managers, partnership managers, growth managers
-9. **Product & Innovation Decision Makers**: Product development, innovation managers, R&D directors
-10. **Customer Success & Support Decision Makers**: Customer success managers, support directors, client managers
-
-FUNCTIETITELS:
-${jobTitles.map((title, index) => `${index + 1}. ${title}`).join('\n')}
-
-INSTRUCTIES:
-- Analyseer ALLE woorden in elke functietitel
-- Kies de MEEST SPECIFIEKE groep voor elke titel
-- Bij twijfel, kies degene die het MEEST direct gerelateerd is
-- Geef ALLEEN de exacte groepnaam per regel terug
-
-ANTWOORDEN (een functiegroep per regel):`;
-
-  try {
-    console.log(`🤖 Sending ${jobTitles.length} job titles to OpenAI for batch classification...`);
-    
-    // Use OpenAI API for batch classification
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'Je bent een precisie-expert in functie classificatie. Analyseer elke functietitel objectief zonder bias. Wees zeer specifiek en accuraat. Vermijd standaard keuzes zoals "Marketing" tenzij de titel duidelijk marketing-gerelateerd is.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 300, // Enough for multiple classifications
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const classifications = data.choices[0]?.message?.content?.trim();
-    
-    if (classifications) {
-      const results = classifications.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
-        .map(line => {
-          // Clean up any numbering like "1. Marketing Decision Makers"
-          const cleaned = line.replace(/^\d+\.\s*/, '').trim();
-          return functionGroups.includes(cleaned) ? cleaned : null;
-        });
-      
-      console.log(`✅ OpenAI classified ${results.filter(r => r).length}/${jobTitles.length} job titles successfully`);
-      
-      // Fill any missing results with keyword-based fallback
-      const finalResults: string[] = [];
-      for (let i = 0; i < jobTitles.length; i++) {
-        if (results[i]) {
-          finalResults[i] = results[i];
-        } else {
-          console.log(`⚠️ OpenAI failed for "${jobTitles[i]}", using keyword fallback`);
-          finalResults[i] = classifyFunctionGroupKeywords(jobTitles[i]);
-        }
-      }
-      
-      return finalResults;
-    }
-    
-    throw new Error('No classifications returned from OpenAI');
-  } catch (error) {
-    console.error('OpenAI batch classification failed:', error);
-    
-    // Fallback to keyword-based classification for all titles
-    console.log(`🔄 Using keyword-based fallback for all ${jobTitles.length} titles`);
-    return jobTitles.map(title => classifyFunctionGroupKeywords(title));
-  }
+  const results = jobTitles.map(title => classifyFunctionGroupKeywords(title));
+  
+  console.log(`✅ Classified ${results.length} job titles successfully`);
+  return results;
 }
 
-// SINGLE OpenAI API CALL (legacy function for reference)
-async function classifyFunctionGroup(jobTitle: string): Promise<string> {
-  const functionGroups = [
-    "Owner/Founder",
-    "Marketing Decision Makers", 
-    "Sales Decision Makers",
-    "Business Development Decision Makers",
-    "Operational Decision Makers",
-    "Technical Decision Makers",
-    "Financial Decision Makers",
-    "HR Decision Makers",
-    "Product & Innovation Decision Makers",
-    "Customer Success & Support Decision Makers"
-  ];
-  
-  const prompt = `Je bent een expert in het classificeren van functietitels naar besluitvormingsgroepen. Analyseer de volgende functietitel zeer zorgvuldig en kies de MEEST SPECIFIEKE en ACCURATE groep.
-
-FUNCTIEGROEPEN:
-
-1. **Owner/Founder**: CEO's, oprichters, eigenaren, directeuren-eigenaar
-2. **Technical Decision Makers**: CTO's, lead developers, software engineers, product managers, IT directors
-3. **Sales Decision Makers**: Sales directors, account executives, sales managers, commercial directors
-4. **Financial Decision Makers**: CFO's, controllers, finance directors, financial managers
-5. **Operational Decision Makers**: COO's, operations managers, supply chain, logistics managers
-6. **HR Decision Makers**: HR managers, people operations, recruitment managers, talent acquisition
-7. **Marketing Decision Makers**: CMO's, marketing managers, brand managers, content managers
-8. **Business Development Decision Makers**: BD managers, partnership managers, growth managers
-9. **Product & Innovation Decision Makers**: Product development, innovation managers, R&D directors
-10. **Customer Success & Support Decision Makers**: Customer success managers, support directors, client managers
-
-FUNCTIETITEL: "${jobTitle}"
-
-INSTRUCTIES:
-- Analyseer ALLE woorden in de functietitel
-- Kies de MEEST SPECIFIEKE groep (bijvoorbeeld: "Software Engineer" = Technical, niet Marketing)
-- Bij twijfel tussen twee groepen, kies degene die het MEEST direct gerelateerd is
-- Geef ALLEEN de exacte groepnaam terug, geen uitleg
-
-ANTWOORD:`;
-
-  try {
-    // Use OpenAI API for classification
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'Je bent een precisie-expert in functie classificatie. Analyseer elke functietitel objectief zonder bias. Wees zeer specifiek en accuraat. Vermijd standaard keuzes zoals "Marketing" tenzij de titel duidelijk marketing-gerelateerd is.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 50,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const classification = data.choices[0]?.message?.content?.trim();
-    
-    // Validate that the response is one of our valid function groups
-    if (classification && functionGroups.includes(classification)) {
-      return classification;
-    }
-    
-    console.log(`Invalid classification from OpenAI: ${classification}, falling back to keyword-based`);
-  } catch (error) {
-    console.error('OpenAI classification failed:', error);
-  }
-
-  // Fallback to keyword-based classification if OpenAI fails
-  const title = jobTitle.toLowerCase();
-  
-  if (title.includes('founder') || title.includes('owner') || title.includes('ceo')) {
-    return "Owner/Founder";
-  } else if (title.includes('marketing') || title.includes('cmo')) {
-    return "Marketing Decision Makers";
-  } else if (title.includes('sales') || title.includes('account')) {
-    return "Sales Decision Makers";
-  } else if (title.includes('cto') || title.includes('developer') || title.includes('engineer')) {
-    return "Technical Decision Makers";
-  } else if (title.includes('cfo') || title.includes('finance')) {
-    return "Financial Decision Makers";
-  } else if (title.includes('hr') || title.includes('people')) {
-    return "HR Decision Makers";
-  } else if (title.includes('operations') || title.includes('coo')) {
-    return "Operational Decision Makers";
-  }
-  
-  // Meer neutrale fallback gebaseerd op seniority
-  if (title.includes('director') || title.includes('head') || title.includes('lead')) {
-    return "Operational Decision Makers"; // Directors zijn meestal operationeel
-  } else if (title.includes('manager') || title.includes('coordinator')) {
-    return "Operational Decision Makers"; // Managers zijn meestal operationeel
-  }
-  
-  return "Operational Decision Makers"; // Neutrale fallback
+// SINGLE CLASSIFICATION - Simple wrapper for keyword-based classification
+function classifyFunctionGroup(jobTitle: string): string {
+  return classifyFunctionGroupKeywords(jobTitle);
 }
 
 
@@ -2172,11 +1956,11 @@ export const createContact = mutation({
   handler: async (ctx, args) => {
     const { clientId, companyId, ...contactData } = args;
     
-    // Use clientId directly + insert ALL contact fields
+    // Use clientId directly + insert ALL contact fields (normalize email)
     return await ctx.db.insert("contacts", {
       firstName: contactData.firstName,
       lastName: contactData.lastName,
-      email: contactData.email,
+      email: contactData.email?.toLowerCase().trim(),
       mobilePhone: contactData.mobilePhone,
       linkedinUrl: contactData.linkedinUrl,
       jobTitle: contactData.jobTitle,
@@ -2216,27 +2000,32 @@ export const createLead = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
+    // Normalize email
+    const normalizedEmail = args.email?.toLowerCase().trim();
+    
     // Check for duplicates based on email (avoid duplicate leads)
-    if (args.email) {
+    if (normalizedEmail) {
       const existingLead = await ctx.db
         .query("leads")
-        .filter((q) => q.eq(q.field("email"), args.email))
+        .filter((q) => q.eq(q.field("email"), normalizedEmail))
         .first();
       
       if (existingLead) {
-        console.log(`📊 Lead with email ${args.email} already exists, updating...`);
-        // Update existing lead with new data
+        console.log(`📊 Lead with email ${normalizedEmail} already exists, updating...`);
+        // Update existing lead with new data (normalize email)
         await ctx.db.patch(existingLead._id, {
           ...args,
+          email: normalizedEmail,
           lastUpdatedAt: now,
         });
         return existingLead._id;
       }
     }
     
-    // Create new lead in public database
+    // Create new lead in public database (normalize email)
     return await ctx.db.insert("leads", {
       ...args,
+      email: normalizedEmail,
       addedAt: now,
       lastUpdatedAt: now,
     });
