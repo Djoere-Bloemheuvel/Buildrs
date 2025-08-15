@@ -44,7 +44,9 @@ export default defineSchema({
     companyUniqueCharacteristics: v.optional(v.array(v.string())),
     companyUniqueQualities: v.optional(v.string()),
     companyLinkedinUrl: v.optional(v.string()),
-    companyTechnologies: v.optional(v.object({})), // jsonb equivalent
+    companyPhone: v.optional(v.string()),
+    scrapedIndustry: v.optional(v.string()), // Raw scraped industry data (will be processed by AI later)
+    companyTechnologies: v.optional(v.union(v.array(v.string()), v.object({}))), // Support both array and object
     country: v.optional(v.string()),
     city: v.optional(v.string()),
     state: v.optional(v.string()),

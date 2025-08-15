@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge';
 import { useConvexAuth } from '@/hooks/useConvexAuth';
+import ApolloUploadDialog from '@/components/contacts/ApolloUploadDialog';
 
 // Minimal type for the enriched view rows we render in this table
 type EnrichedContact = {
@@ -368,6 +369,7 @@ export default function ContactsPage() {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Contacts</h1>
           <div className="space-x-2">
+            <ApolloUploadDialog />
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Export
