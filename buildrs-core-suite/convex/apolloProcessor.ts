@@ -576,30 +576,34 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
     optedIn: false, // Default naar false
   });
   
-  // 7. 📊 KOPIEER CONTACT NAAR OPENBARE LEADS DATABASE
-  console.log("📊 Adding contact to public leads database...");
-  try {
-    await ctx.runMutation(internal.apolloProcessor.createLead, {
-      companyId: companyId,
-      firstName: contactData.firstName,
-      lastName: contactData.lastName,
-      email: contactData.email?.toLowerCase().trim(),
-      mobilePhone: contactData.mobilePhone,
-      linkedinUrl: contactData.linkedinUrl,
-      jobTitle: contactData.jobTitle,
-      seniority: contactData.seniority,
-      functionGroup: functionGroup,
-      country: contactData.country,
-      state: contactData.state,
-      city: contactData.city,
-      originalContactId: contactId,
-      sourceType: "apollo",
-      isActive: true,
-    });
-    console.log("✅ Contact added to public leads database");
-  } catch (error) {
-    console.error("❌ Failed to add contact to leads database:", error);
-    // Don't fail the whole process if leads creation fails
+  // 7. 📊 KOPIEER CONTACT NAAR OPENBARE LEADS DATABASE (only if email exists)
+  if (contactData.email) {
+    console.log("📊 Adding contact to public leads database...");
+    try {
+      await ctx.runMutation(internal.apolloProcessor.createLead, {
+        companyId: companyId,
+        firstName: contactData.firstName,
+        lastName: contactData.lastName,
+        email: contactData.email.toLowerCase().trim(), // Required field
+        mobilePhone: contactData.mobilePhone,
+        linkedinUrl: contactData.linkedinUrl,
+        jobTitle: contactData.jobTitle,
+        seniority: contactData.seniority,
+        functionGroup: functionGroup,
+        country: contactData.country,
+        state: contactData.state,
+        city: contactData.city,
+        originalContactId: contactId,
+        sourceType: "apollo",
+        isActive: true,
+      });
+      console.log("✅ Contact added to public leads database");
+    } catch (error) {
+      console.error("❌ Failed to add contact to leads database:", error);
+      // Don't fail the whole process if leads creation fails
+    }
+  } else {
+    console.log("⚠️ Skipping leads database - no email provided");
   }
   
   return { 
@@ -1983,7 +1987,7 @@ export const createLead = mutation({
     companyId: v.optional(v.id("companies")),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
+    email: v.string(), // Required field for unique constraint
     mobilePhone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
@@ -2000,35 +2004,40 @@ export const createLead = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
-    // Normalize email
-    const normalizedEmail = args.email?.toLowerCase().trim();
+    // Normalize email (required field)
+    const normalizedEmail = args.email.toLowerCase().trim();
     
-    // Check for duplicates based on email (avoid duplicate leads)
-    if (normalizedEmail) {
-      const existingLead = await ctx.db
-        .query("leads")
-        .filter((q) => q.eq(q.field("email"), normalizedEmail))
-        .first();
-      
-      if (existingLead) {
+    try {
+      // Create new lead in public database with unique constraint
+      return await ctx.db.insert("leads", {
+        ...args,
+        email: normalizedEmail,
+        addedAt: now,
+        lastUpdatedAt: now,
+      });
+    } catch (error) {
+      // Handle unique constraint violation - update existing lead
+      if (error.message && error.message.includes('unique')) {
         console.log(`📊 Lead with email ${normalizedEmail} already exists, updating...`);
-        // Update existing lead with new data (normalize email)
-        await ctx.db.patch(existingLead._id, {
-          ...args,
-          email: normalizedEmail,
-          lastUpdatedAt: now,
-        });
-        return existingLead._id;
+        
+        const existingLead = await ctx.db
+          .query("leads")
+          .filter((q) => q.eq(q.field("email"), normalizedEmail))
+          .first();
+        
+        if (existingLead) {
+          await ctx.db.patch(existingLead._id, {
+            ...args,
+            email: normalizedEmail,
+            lastUpdatedAt: now,
+          });
+          return existingLead._id;
+        }
       }
+      
+      // Re-throw other errors
+      throw error;
     }
-    
-    // Create new lead in public database (normalize email)
-    return await ctx.db.insert("leads", {
-      ...args,
-      email: normalizedEmail,
-      addedAt: now,
-      lastUpdatedAt: now,
-    });
   },
 });
 

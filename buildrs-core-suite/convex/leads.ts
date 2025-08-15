@@ -17,7 +17,7 @@ export const listLeads = query({
     companyId: v.optional(v.id("companies")),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
+    email: v.string(), // Required field with unique constraint
     mobilePhone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
@@ -182,7 +182,7 @@ export const searchLeads = query({
     _creationTime: v.number(),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
+    email: v.string(), // Required field with unique constraint
     jobTitle: v.optional(v.string()),
     functionGroup: v.optional(v.string()),
     seniority: v.optional(v.string()),
@@ -303,7 +303,7 @@ export const getLead = query({
       companyId: v.optional(v.id("companies")),
       firstName: v.optional(v.string()),
       lastName: v.optional(v.string()),
-      email: v.optional(v.string()),
+      email: v.string(), // Required field with unique constraint
       mobilePhone: v.optional(v.string()),
       linkedinUrl: v.optional(v.string()),
       jobTitle: v.optional(v.string()),

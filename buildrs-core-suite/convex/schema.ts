@@ -90,7 +90,7 @@ export default defineSchema({
     companyId: v.optional(v.id("companies")),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
+    email: v.string(), // Required field for unique constraint
     mobilePhone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
@@ -106,7 +106,7 @@ export default defineSchema({
     isActive: v.optional(v.boolean()), // Voor soft deletes
     originalContactId: v.optional(v.id("contacts")), // Referentie naar originele contact voor tracking
   }).index("by_company", ["companyId"])
-    .index("by_email", ["email"])
+    .index("by_email_unique", ["email"], { unique: true }) // UNIQUE constraint on email
     .index("by_function_group", ["functionGroup"])
     .index("by_country", ["country"])
     .index("by_source", ["sourceType"])
