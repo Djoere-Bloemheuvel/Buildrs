@@ -1,5 +1,7 @@
 
 import { useState } from 'react';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Search, Plus, Filter, Download, MoreHorizontal, User, Building2, Phone, Mail, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -32,35 +34,32 @@ import { Badge } from '@/components/ui/badge';
 import { useConvexAuth } from '@/hooks/useConvexAuth';
 import ApolloUploadDialog from '@/components/contacts/ApolloUploadDialog';
 
-// Minimal type for the enriched view rows we render in this table
-type EnrichedContact = {
-  id: string
-  contact_id?: string | null
-  first_name?: string | null
-  last_name?: string | null
-  email?: string | null
-  mobile_phone?: string | null
-  status?: string | null
-  company_name?: string | null
-  domain?: string | null
-  website?: string | null
-  linkedin_url?: string | null
-  job_title?: string | null
-  function_group?: string | null
-  industry?: string | null
-  industry_label?: string | null
-  subindustry_label?: string | null
-  employee_count?: number | null
-  company_size?: number | null
-  city?: string | null
-  state?: string | null
-  country?: string | null
-  company_city?: string | null
-  company_state?: string | null
-  company_country?: string | null
-  contact_city?: string | null
-  contact_state?: string | null
-  contact_country?: string | null
+// Type for basic contacts from Convex database
+type Contact = {
+  _id: string
+  _creationTime: number
+  leadId: string
+  clientId: string
+  companyId: string
+  purchasedAt: number
+  status?: string
+  lastCommunicationAt?: number
+  optedIn?: boolean
+  fullEnrichment?: boolean
+  firstName?: string
+  lastName?: string
+  email?: string
+  mobilePhone?: string
+  linkedinUrl?: string
+  jobTitle?: string
+  functionGroup?: string
+  name?: string
+  website?: string
+  companyLinkedinUrl?: string
+  industryLabel?: string
+  subindustryLabel?: string
+  companySummary?: string
+  shortCompanySummary?: string
 }
 
 function getStatusColor(status: string) {
@@ -83,136 +82,51 @@ function getStatusColor(status: string) {
 export default function ContactsPage() {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { user } = useConvexAuth();
-  // Mock profile data
-  const profile = { client_id: 'client-1' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const clientId = getClientId();
+  const profile = { client_id: clientId };
 
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(25);
   
-  // Mock contacts data
-  const mockContacts: EnrichedContact[] = [
-    {
-      id: '1',
-      contact_id: 'contact-1',
-      first_name: 'John',
-      last_name: 'Doe',
-      email: 'john.doe@acme.com',
-      mobile_phone: '+31 6 12345678',
-      status: 'warm',
-      company_name: 'Acme Corporation',
-      domain: 'acme.com',
-      website: 'https://acme.com',
-      linkedin_url: 'https://linkedin.com/in/johndoe',
-      job_title: 'CTO',
-      function_group: 'Technology Decision Makers',
-      company_city: 'Amsterdam',
-      company_state: 'Noord-Holland',
-      company_country: 'Netherlands'
-    },
-    {
-      id: '2',
-      contact_id: 'contact-2',
-      first_name: 'Jane',
-      last_name: 'Smith',
-      email: 'jane.smith@techsolutions.nl',
-      mobile_phone: '+31 6 87654321',
-      status: 'hot',
-      company_name: 'Tech Solutions BV',
-      domain: 'techsolutions.nl',
-      website: 'https://techsolutions.nl',
-      linkedin_url: 'https://linkedin.com/in/janesmith',
-      job_title: 'Marketing Director',
-      function_group: 'Marketing Decision Makers',
-      company_city: 'Rotterdam',
-      company_state: 'Zuid-Holland',
-      company_country: 'Netherlands'
-    },
-    {
-      id: '3',
-      contact_id: 'contact-3',
-      first_name: 'Peter',
-      last_name: 'van Berg',
-      email: 'p.vanberg@digitalcommerce.com',
-      mobile_phone: '+31 6 55566677',
-      status: 'cold',
-      company_name: 'Digital Commerce Ltd',
-      domain: 'digitalcommerce.com',
-      website: 'https://digitalcommerce.com',
-      linkedin_url: 'https://linkedin.com/in/petervb',
-      job_title: 'CEO',
-      function_group: 'C-Level',
-      company_city: 'Utrecht',
-      company_state: 'Utrecht',
-      company_country: 'Netherlands'
-    },
-    {
-      id: '4',
-      contact_id: 'contact-4',
-      first_name: 'Lisa',
-      last_name: 'de Vries',
-      email: 'lisa@buildrs.tech',
-      mobile_phone: '+31 6 99988877',
-      status: 'qualified',
-      company_name: 'Buildrs Technologies',
-      domain: 'buildrs.tech',
-      website: 'https://buildrs.tech',
-      linkedin_url: 'https://linkedin.com/in/lisadevries',
-      job_title: 'Product Manager',
-      function_group: 'Product Decision Makers',
-      company_city: 'Eindhoven',
-      company_state: 'Noord-Brabant',
-      company_country: 'Netherlands'
-    }
-  ];
-  
-  // Filter contacts based on search and status
-  let filteredContacts = mockContacts;
-  
-  if (search) {
-    filteredContacts = filteredContacts.filter(contact => 
-      contact.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-      contact.last_name?.toLowerCase().includes(search.toLowerCase()) ||
-      contact.email?.toLowerCase().includes(search.toLowerCase()) ||
-      contact.company_name?.toLowerCase().includes(search.toLowerCase())
-    );
-  }
-  
-  if (statusFilter !== 'all') {
-    filteredContacts = filteredContacts.filter(contact => contact.status === statusFilter);
-  }
-  
-  const contacts: EnrichedContact[] = filteredContacts;
-  const total = filteredContacts.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const isLoading = false;
-  const error = null;
+  // Get basic contacts data from Convex (simplified for debugging)
+  const contactsData = useQuery(api.contacts.list, {
+    clientId: profile?.client_id as any, // Use mock client ID for testing
+    search: search || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    limit: pageSize,
+  });
 
-  const columns: ColumnDef<EnrichedContact>[] = [
+  const isLoading = contactsData === undefined;
+  const contacts = contactsData || [];
+  const totalContacts = contacts.length;
+  
+  // Use the total count from the enriched query for proper pagination
+  const total = totalContacts;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const columns: ColumnDef<Contact>[] = [
     {
       accessorKey: "contactpersoon",
       header: "Contactpersoon",
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        const initials = `${c.first_name?.[0] || ''}${c.last_name?.[0] || ''}` || 'C';
-        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Naamloos';
+        const c: Contact = row.original;
+        const initials = `${c.firstName?.[0] || ''}${c.lastName?.[0] || ''}` || 'C';
+        const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Naamloos';
         return (
-          <div className="flex items-center gap-3 w-[260px]">
-            <input type="radio" name="contacts-select" className="h-4 w-4 text-primary" />
-            <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-xs font-medium">
-              {c.domain ? (
-                <img src={`https://logo.clearbit.com/${c.domain}`} alt="logo" className="h-full w-full object-cover" />
-              ) : (
-                initials
-              )}
+          <div className="flex items-center gap-2 sm:gap-3 w-full min-w-[200px] sm:w-[260px]">
+            <input type="radio" name="contacts-select" className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-xs font-medium flex-shrink-0">
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <Link to={`/contacts/${(c.contact_id || c.id)}`} className="font-medium text-foreground truncate text-sm hover:underline">
+              <Link to={`/contacts/${c._id}`} className="font-medium text-foreground truncate text-sm hover:underline block">
                 {fullName}
               </Link>
-              <div className="text-xs truncate">
-                {c.linkedin_url ? (
-                  <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:underline">LinkedIn profiel</a>
+              <div className="text-xs truncate hidden sm:block">
+                {c.linkedinUrl ? (
+                  <a href={c.linkedinUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:underline">LinkedIn profiel</a>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -226,12 +140,12 @@ export default function ContactsPage() {
       accessorKey: "functie",
       header: "Functie",
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
+        const c: Contact = row.original;
         return (
-          <div className="w-[200px]">
-            <div className="text-sm font-medium truncate text-foreground/90">{c.job_title || '—'}</div>
-            {c.function_group && (
-              <Badge variant="secondary" className="mt-1">{c.function_group}</Badge>
+          <div className="w-full min-w-[150px] sm:w-[200px]">
+            <div className="text-sm font-medium truncate text-foreground/90">{c.jobTitle || '—'}</div>
+            {c.functionGroup && (
+              <Badge variant="secondary" className="mt-1 hidden sm:inline-flex">{c.functionGroup}</Badge>
             )}
           </div>
         );
@@ -241,16 +155,15 @@ export default function ContactsPage() {
       accessorKey: "bedrijf",
       header: "Bedrijf",
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        const url = c.domain || c.website || '';
-  return (
-          <div className="w-[220px]">
-            <Link to={`/accounts/${(c as any).company_id || ''}`} className="text-sm font-medium text-foreground hover:underline truncate block">
-              {c.company_name || '—'}
+        const c: Contact = row.original;
+        return (
+          <div className="w-full min-w-[150px] sm:w-[220px]">
+            <Link to={`/accounts/${c.companyId || ''}`} className="text-sm font-medium text-foreground hover:underline truncate block">
+              {c.name || 'Onbekend Bedrijf'}
             </Link>
-            <div className="text-xs truncate">
-              {url ? (
-                <a href={`https://${url}`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:underline">{url}</a>
+            <div className="text-xs truncate hidden sm:block">
+              {c.website ? (
+                <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:underline">{c.website.replace(/https?:\/\//, '')}</a>
               ) : (
                 <span className="text-muted-foreground">—</span>
               )}
@@ -263,29 +176,28 @@ export default function ContactsPage() {
       accessorKey: "email",
       header: "E-mail",
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        return <div className="text-sm text-foreground/80 truncate max-w-[200px]">{c.email ?? '—'}</div>;
+        const c: Contact = row.original;
+        return <div className="text-sm text-foreground/80 truncate max-w-[150px] sm:max-w-[200px]">{c.email || '—'}</div>;
       },
     },
     {
       accessorKey: "telefoon",
-      header: "Telefoon",
+      header: () => <span className="hidden lg:inline">Telefoon</span>,
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        const phone = c.mobile_phone || (c as any).company_phone || '—';
-        return <div className="text-sm text-muted-foreground">{phone}</div>;
+        const c: Contact = row.original;
+        return <div className="text-sm text-muted-foreground hidden lg:block">{c.mobilePhone || '—'}</div>;
       },
     },
     {
       accessorKey: "industrie",
-      header: "Industrie",
+      header: () => <span className="hidden md:inline">Industrie</span>,
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
+        const c: Contact = row.original;
         return (
-          <div className="w-[200px]">
-            <div className="text-sm font-medium text-foreground/90 truncate">{c.industry_label || c.industry || '—'}</div>
-            {c.subindustry_label && (
-              <Badge variant="secondary" className="mt-1">{c.subindustry_label}</Badge>
+          <div className="w-full min-w-[120px] sm:w-[200px] hidden md:block">
+            <div className="text-sm font-medium text-foreground/90 truncate">{c.industryLabel || '—'}</div>
+            {c.subindustryLabel && (
+              <Badge variant="secondary" className="mt-1 hidden lg:inline-flex">{c.subindustryLabel}</Badge>
             )}
           </div>
         );
@@ -293,24 +205,18 @@ export default function ContactsPage() {
     },
     {
       accessorKey: "aantal_medewerkers",
-      header: "Aantal medewerkers",
+      header: () => <span className="hidden xl:inline">Aantal medewerkers</span>,
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        return <div className="text-sm text-foreground/80">{c.company_size ?? c.employee_count ?? '—'}</div>;
+        const c: Contact = row.original;
+        return <div className="text-sm text-foreground/80 hidden xl:block">—</div>;
       },
     },
     {
       accessorKey: "locatie",
-      header: "Locatie",
+      header: () => <span className="hidden xl:inline">Locatie</span>,
       cell: ({ row }: { row: any }) => {
-        const c: EnrichedContact = row.original;
-        // Gebruik bedrijfs-locatie zoals op de bedrijvenpagina; val terug op contactlocatie uit de view
-        const parts = [
-          c.company_city ?? c.contact_city,
-          c.company_state ?? c.contact_state,
-          c.company_country ?? c.contact_country,
-        ].filter(Boolean) as string[];
-        return <div className="text-sm text-foreground/80 truncate max-w-[220px]">{parts.length ? parts.join(', ') : '—'}</div>;
+        const c: Contact = row.original;
+        return <div className="text-sm text-foreground/80 truncate max-w-[220px] hidden xl:block">—</div>;
       },
     },
     {
@@ -318,7 +224,10 @@ export default function ContactsPage() {
       header: "Actie",
       cell: () => (
         <div className="flex justify-end">
-          <Button size="sm" className="h-8">Contact</Button>
+          <Button size="sm" className="h-8 text-xs px-2 sm:px-3">
+            <span className="hidden sm:inline">Contact</span>
+            <Mail className="h-3 w-3 sm:hidden" />
+          </Button>
         </div>
       ),
     },
@@ -352,49 +261,44 @@ export default function ContactsPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Error</h2>
-          <p className="text-muted-foreground mt-2">Failed to load contacts.</p>
-        </div>
-          </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-      <div className="container mx-auto pt-6 pb-2">
-        <div className="flex justify-between items-center mb-4">
+      <div className="container mx-auto pt-4 sm:pt-6 pb-2 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <h1 className="text-2xl font-bold">Contacts</h1>
-          <div className="space-x-2">
+          <div className="flex flex-wrap gap-2">
             <ApolloUploadDialog />
-            <Button variant="outline">
+            <Button variant="outline" size="sm" className="hidden sm:flex">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button>
+            <Button variant="outline" size="sm" className="sm:hidden">
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Add Contact
+              <span className="hidden sm:inline">Add Contact</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </div>
         </div>
         
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
             <Input 
               type="search"
               placeholder="Search contacts..."
-              className="max-w-md"
+              className="w-full sm:max-w-md"
               value={search} 
               onChange={(e) => setSearch(e.target.value)} 
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="ml-2">
+                <Button variant="ghost" className="w-full sm:w-auto">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter by Status
+                  <span className="hidden sm:inline">Filter by Status</span>
+                  <span className="sm:hidden">Filter</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -426,7 +330,7 @@ export default function ContactsPage() {
 
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-auto">
-          <Table className="w-full">
+          <Table className="w-full min-w-[600px]">
             <TableHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -434,13 +338,13 @@ export default function ContactsPage() {
                     return (
                       <TableHead 
                         key={header.id}
-                        className={
+                        className={`font-semibold text-foreground/80 ${
                           idx === 0
-                            ? 'w-[260px] font-semibold text-foreground/80 sticky left-0 bg-background'
+                            ? 'w-[200px] sm:w-[260px] sticky left-0 bg-background'
                             : idx === headerGroup.headers.length - 1
-                              ? 'w-[40px] text-center font-semibold text-foreground/80'
-                              : 'font-semibold text-foreground/80'
-                        }
+                              ? 'w-[60px] sm:w-[80px] text-center'
+                              : 'min-w-[100px]'
+                        }`}
                       >
                         {header.isPlaceholder
                           ? null
@@ -475,13 +379,13 @@ export default function ContactsPage() {
                     {row.getVisibleCells().map((cell, idx) => (
                       <TableCell
                         key={cell.id}
-                        className={
+                        className={`${
                           idx === 0
-                            ? 'sticky left-0 z-10 w-[260px] bg-background group-hover:bg-muted'
+                            ? 'sticky left-0 z-10 w-[200px] sm:w-[260px] bg-background group-hover:bg-muted'
                             : idx === row.getVisibleCells().length - 1
                               ? 'text-right'
                               : ''
-                        }
+                        }`}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
@@ -501,18 +405,24 @@ export default function ContactsPage() {
         </div>
 
       {/* Sticky Footer Pagination */}
-      <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between text-sm">
-        <div className="flex items-center gap-4">
+      <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm gap-3 sm:gap-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
           <div className="text-muted-foreground font-medium">
             <div>
               {Math.min((page-1)*pageSize+1, total)}–{Math.min(page*pageSize, total)} van {total}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page<=1} onClick={()=> setPage(p=> Math.max(1, p-1))} className="h-8">Vorige</Button>
-            <span>{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=> setPage(p=> Math.min(totalPages, p+1))} className="h-8">Volgende</Button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={page<=1} onClick={()=> setPage(p=> Math.max(1, p-1))} className="h-8 text-xs px-2 sm:px-3">
+            <span className="hidden sm:inline">Vorige</span>
+            <span className="sm:hidden">←</span>
+          </Button>
+          <span className="text-xs sm:text-sm">{page} / {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=> setPage(p=> Math.min(totalPages, p+1))} className="h-8 text-xs px-2 sm:px-3">
+            <span className="hidden sm:inline">Volgende</span>
+            <span className="sm:hidden">→</span>
+          </Button>
         </div>
       </div>
     </div>

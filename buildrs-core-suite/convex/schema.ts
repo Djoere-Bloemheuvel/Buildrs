@@ -72,8 +72,14 @@ export default defineSchema({
     email: v.string(),
     role: v.optional(v.string()),
     clientId: v.optional(v.id("clients")),
+    clerkUserId: v.optional(v.string()), // Clerk user ID for linking
+    name: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   }).index("by_client", ["clientId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_clerk_user", ["clerkUserId"]),
 
   // ===============================
   // CRM ENTITIES
@@ -152,6 +158,8 @@ export default defineSchema({
     // DENORMALIZED LEAD DATA (for performance)
     firstName: v.optional(v.string()),           // From leads.firstName
     lastName: v.optional(v.string()),            // From leads.lastName
+    email: v.optional(v.string()),               // From leads.email
+    mobilePhone: v.optional(v.string()),         // From leads.mobilePhone
     linkedinUrl: v.optional(v.string()),         // From leads.linkedinUrl
     jobTitle: v.optional(v.string()),            // From leads.jobTitle
     functionGroup: v.optional(v.string()),       // From leads.functionGroup
@@ -1497,4 +1505,171 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_period", ["periodStart", "periodEnd"])
     .index("by_health_status", ["healthStatus"]),
+
+  // ===============================
+  // ENTERPRISE AUTOMATION RELIABILITY
+  // ===============================
+
+  // Retry Queue for Failed Automations
+  automationRetries: defineTable({
+    clientAutomationId: v.id("clientAutomations"),
+    retryAttempt: v.number(), // 1, 2, 3...
+    scheduledFor: v.number(), // When to retry
+    status: v.string(), // "pending", "processing", "completed", "failed"
+    
+    // Retry context
+    originalExecutionId: v.optional(v.string()),
+    originalFailureReason: v.optional(v.string()),
+    retryReason: v.optional(v.string()),
+    
+    // Execution tracking
+    result: v.optional(v.string()), // "success", "failed" after processing
+    processedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    
+    // Metadata
+    priority: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_scheduled_for", ["scheduledFor"])
+    .index("by_status", ["status"])
+    .index("by_automation", ["clientAutomationId"])
+    .index("by_priority", ["priority"]),
+
+  // Dead Letter Queue for Manual Investigation
+  automationFailures: defineTable({
+    clientAutomationId: v.id("clientAutomations"),
+    clientId: v.string(),
+    executionId: v.string(),
+    
+    // Failure details
+    failedAt: v.number(),
+    errorCode: v.string(),
+    errorMessage: v.string(),
+    stackTrace: v.optional(v.string()),
+    
+    // Retry information
+    retryAttempts: v.number(),
+    lastRetryAt: v.optional(v.number()),
+    
+    // Resolution tracking
+    requiresManualIntervention: v.boolean(),
+    status: v.optional(v.string()), // "open", "investigating", "resolved", "closed"
+    assignedTo: v.optional(v.string()),
+    resolutionNotes: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    
+    // Impact assessment
+    severity: v.optional(v.string()), // "low", "medium", "high", "critical"
+    impactedClients: v.optional(v.array(v.string())),
+    businessImpact: v.optional(v.string()),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_failed_at", ["failedAt"])
+    .index("by_error_code", ["errorCode"])
+    .index("by_status", ["status"])
+    .index("by_severity", ["severity"])
+    .index("by_requires_intervention", ["requiresManualIntervention"]),
+
+  // System Health Metrics
+  systemHealth: defineTable({
+    timestamp: v.number(),
+    
+    // Overall system status
+    systemStatus: v.string(), // "healthy", "degraded", "critical"
+    
+    // Performance metrics
+    totalActiveAutomations: v.number(),
+    executionsLastHour: v.number(),
+    successfulExecutions: v.number(),
+    failedExecutions: v.number(),
+    successRate: v.number(),
+    
+    // Resource utilization
+    avgExecutionTime: v.number(),
+    peakExecutionTime: v.number(),
+    systemLoad: v.optional(v.number()),
+    
+    // Error tracking
+    errorBreakdown: v.object({}), // Map of error codes to counts
+    
+    // Queue health
+    pendingRetries: v.number(),
+    deadLetterQueueSize: v.number(),
+    oldestPendingRetry: v.optional(v.number()),
+    
+    // Alerts generated
+    alertsTriggered: v.optional(v.array(v.string())),
+    
+    createdAt: v.number(),
+  }).index("by_timestamp", ["timestamp"])
+    .index("by_system_status", ["systemStatus"]),
+
+  // Alert Configuration and History
+  systemAlerts: defineTable({
+    alertId: v.string(),
+    alertType: v.string(), // "performance", "error_rate", "system_critical", "automation_failure"
+    
+    // Alert details
+    title: v.string(),
+    description: v.string(),
+    severity: v.string(), // "info", "warning", "critical"
+    
+    // Trigger conditions
+    threshold: v.optional(v.number()),
+    actualValue: v.optional(v.number()),
+    triggerCondition: v.string(),
+    
+    // Status tracking
+    status: v.string(), // "active", "acknowledged", "resolved", "suppressed"
+    acknowledgedBy: v.optional(v.string()),
+    acknowledgedAt: v.optional(v.number()),
+    resolvedAt: v.optional(v.number()),
+    
+    // Escalation
+    escalationLevel: v.optional(v.number()),
+    notificationsSent: v.optional(v.array(v.string())),
+    
+    // Context
+    relatedAutomationId: v.optional(v.id("clientAutomations")),
+    relatedClientId: v.optional(v.string()),
+    systemMetrics: v.optional(v.object({})),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_alert_type", ["alertType"])
+    .index("by_severity", ["severity"])
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_automation", ["relatedAutomationId"])
+    .index("by_client", ["relatedClientId"]),
+
+  // Circuit Breaker State
+  systemCircuitBreakers: defineTable({
+    breakerId: v.string(), // "automation_executor", "credit_processor", "email_sender"
+    
+    // Circuit breaker state
+    state: v.string(), // "closed", "open", "half_open"
+    failureCount: v.number(),
+    lastFailureAt: v.optional(v.number()),
+    
+    // Configuration
+    failureThreshold: v.number(),
+    resetTimeout: v.number(), // milliseconds
+    
+    // Recovery tracking
+    halfOpenSuccessCount: v.optional(v.number()),
+    halfOpenFailureCount: v.optional(v.number()),
+    lastSuccessAt: v.optional(v.number()),
+    
+    // State changes
+    stateChangedAt: v.number(),
+    stateChangeReason: v.string(),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_breaker_id", ["breakerId"], { unique: true })
+    .index("by_state", ["state"])
+    .index("by_failure_count", ["failureCount"]),
 });

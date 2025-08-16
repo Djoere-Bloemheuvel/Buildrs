@@ -103,9 +103,9 @@ function getStatusColor(status: string) {
 
 export default function LeadDatabase() {
   const [search, setSearch] = useState<string>('');
-  const { user } = useConvexAuth();
-  // Mock profile data
-  const profile = { client_id: 'client-1' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const profile = { client_id: getClientId() };
 
   // Filter states
   const [selectedFunctionGroups, setSelectedFunctionGroups] = useState<string[]>([]);
@@ -138,13 +138,14 @@ export default function LeadDatabase() {
   
   // Automation settings
   const [enableAutomation, setEnableAutomation] = useState<boolean>(false);
+  const [automationName, setAutomationName] = useState<string>('');
   const [dailyLimit, setDailyLimit] = useState<number | ''>('');
   const [automationTime, setAutomationTime] = useState<string>("09:00");
   const [activeTab, setActiveTab] = useState<string>("direct");
 
-  // Backend mutations
-  const convertLeadsToContacts = useMutation(api.leadConversion.convertLeadsToContacts);
-  const getTargetAudienceLeads = useMutation(api.leadConversion.getTargetAudienceLeads);
+  // Backend mutations - using NEW EXACT system
+  const convertLeadsToContacts = useMutation(api.exactLeadConversion.convertExactMatchLeads);
+  const getTargetAudienceLeads = useMutation(api.exactLeadConversion.getExactMatchLeads);
   
   // Automation mutations
   const createClientAutomation = useMutation(api.automationsStringClient.createClientAutomationWithStringId);
@@ -163,40 +164,86 @@ export default function LeadDatabase() {
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(100);
 
-  // Get filter options from Convex
-  const filterOptions = useQuery(api.leadDatabase.getFilterOptions);
-  const filteredLocationOptions = useQuery(api.leadDatabase.getFilteredLocationOptions, {
-    selectedCountries: selectedCountries.length > 0 ? selectedCountries : undefined,
-    selectedProvinces: selectedProvinces.length > 0 ? selectedProvinces : undefined,
-  });
-  const filteredIndustryOptions = useQuery(api.leadDatabase.getFilteredIndustryOptions, {
-    selectedIndustries: selectedIndustries.length > 0 ? selectedIndustries : undefined,
-  });
-  const filterOptionsLoading = filterOptions === undefined || filteredLocationOptions === undefined || filteredIndustryOptions === undefined;
+  // Get filter options using NEW EXACT system
+  const filterOptions = useQuery(api.exactLeadDatabase.getExactFilterOptions);
+  const filteredLocationOptions = filterOptions ? {
+    countries: filterOptions.countries,
+    provinces: [], // Not implemented in exact system yet
+    cities: [], // Not implemented in exact system yet
+  } : undefined;
+  const filteredIndustryOptions = filterOptions ? {
+    industries: filterOptions.industries,
+    subindustries: [], // Not implemented in exact system yet
+  } : undefined;
+  const filterOptionsLoading = filterOptions === undefined;
 
-  // Get leads data from Convex
+  // Get leads data using NEW EXACT FILTERING system
   const targetEmployeeMin = employeeMinTextInput ? parseInt(employeeMinTextInput) : employeeCountMin;
   const targetEmployeeMax = employeeMaxTextInput ? parseInt(employeeMaxTextInput) : employeeCountMax;
-  const data = useQuery(api.leadDatabase.getEnrichedContacts, {
-    search: search || undefined,
-    page,
-    pageSize,
+  const data = useQuery(api.exactLeadDatabase.getExactFilteredLeads, {
+    searchTerm: search || undefined,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
     functionGroups: selectedFunctionGroups.length > 0 ? selectedFunctionGroups : undefined,
     industries: selectedIndustries.length > 0 ? selectedIndustries : undefined,
-    subindustries: selectedSubindustries.length > 0 ? selectedSubindustries : undefined,
-    locations: selectedLocations.length > 0 ? selectedLocations : undefined,
     countries: selectedCountries.length > 0 ? selectedCountries : undefined,
-    provinces: selectedProvinces.length > 0 ? selectedProvinces : undefined,
-    cities: selectedCities.length > 0 ? selectedCities : undefined,
     minEmployeeCount: targetEmployeeMin > 1 ? targetEmployeeMin : undefined,
-    maxEmployeeCount: targetEmployeeMax ? targetEmployeeMax : undefined,
+    maxEmployeeCount: targetEmployeeMax < 1000 ? targetEmployeeMax : undefined,
+    clientIdentifier: profile?.client_id || "",
   });
 
   const isLoading = data === undefined;
   
-  const contacts: EnrichedContact[] = (data as any)?.data ?? []
-  const total = (data as any)?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  // Map exact lead data to EnrichedContact interface
+  const contacts: EnrichedContact[] = (data?.data || []).map(lead => {
+    // DEBUG: Log employee count data
+    console.log(`🔍 Lead Debug for ${lead.firstName} ${lead.lastName}:`, {
+      employeeCount: lead.employeeCount,
+      companySize: lead.companySize,
+      debugEmployeeData: lead.debugEmployeeData,
+      companyName: lead.companyName
+    });
+    
+    return {
+    id: lead._id,
+    contact_id: lead._id,
+    first_name: lead.firstName,
+    last_name: lead.lastName,
+    email: lead.email,
+    mobile_phone: lead.mobilePhone,
+    job_title: lead.jobTitle,
+    function_group: lead.functionGroup,
+    linkedin_url: lead.linkedinUrl,
+    // Company data
+    company_name: lead.companyName,
+    domain: lead.domain,
+    website: lead.website,
+    company_linkedin_url: lead.companyLinkedinUrl,
+    industry: lead.industry,
+    industry_label: lead.industry,
+    subindustry_label: lead.subindustryLabel,
+    employee_count: lead.employeeCount || lead.companySize,
+    company_size: lead.companySize || lead.employeeCount,
+    // Location data - Contact
+    country: lead.country,
+    contact_country: lead.country,
+    state: lead.state,
+    contact_state: lead.state,
+    city: lead.city,
+    contact_city: lead.city,
+    // Location data - Company
+    company_country: lead.companyCountry,
+    company_state: lead.companyState,
+    company_city: lead.companyCity,
+    // Additional metadata
+    company_summary: lead.companySummary,
+    short_company_summary: lead.shortCompanySummary,
+    }
+  });
+  
+  const total = data?.total ?? 0;
+  const hasMore = data?.hasMore ?? false;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const resetFilters = () => {
     setSearch('');
@@ -262,40 +309,103 @@ export default function LeadDatabase() {
       const leadIdsArray = Array.from(selectedLeads);
       const result = await convertLeadsToContacts({
         leadIds: leadIdsArray as any[], // Type assertion needed for Convex ID type
-        clientIdentifier: profile.client_id, // Now using string identifier
+        clientIdentifier: profile.client_id, // Using string identifier
       });
 
       if (result.success) {
         toast.success(
-          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd naar contacten!`
+          `🎉 ${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd!`,
+          {
+            style: {
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
         );
         
         if (result.skippedCount > 0) {
-          toast.warning(
-            `${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} overgeslagen (${result.errors.join(', ')})`
+          toast(
+            `⚠️ ${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} overgeslagen`,
+            {
+              style: {
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: 'white',
+                fontWeight: '600',
+                borderRadius: '12px',
+                border: 'none',
+                boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)',
+                backdropFilter: 'blur(10px)',
+              },
+              duration: 3000,
+            }
           );
         }
       } else {
-        toast.error('Er zijn fouten opgetreden tijdens de conversie');
-        result.errors.forEach(error => toast.error(error));
+        toast.error(
+          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
+        );
+        result.errors.forEach(error => 
+          toast.error(error, {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontWeight: '500',
+              borderRadius: '10px',
+              border: 'none',
+              boxShadow: '0 8px 20px rgba(239, 68, 68, 0.25)',
+            },
+            duration: 3000,
+          })
+        );
       }
 
       // Clear selection and close modal
       setSelectedLeads(new Set());
       setShowManualConversionModal(false);
       
-      // Optionally refresh the data
-      // The useQuery will automatically refresh the data
+      // Data will automatically refresh due to Convex reactivity
 
     } catch (error) {
       console.error('Conversion error:', error);
-      toast.error(`Fout bij conversie: ${error.message}`);
+      toast.error(
+        `💥 Fout bij conversie: ${error.message}`,
+        {
+          style: {
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            color: 'white',
+            fontWeight: '600',
+            borderRadius: '12px',
+            border: 'none',
+            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+            backdropFilter: 'blur(10px)',
+          },
+          duration: 4000,
+        }
+      );
     } finally {
       setIsConverting(false);
     }
   };
 
-  // Target audience matching functions
+  // Target audience matching using NEW EXACT system
   const searchTargetAudience = async () => {
     if (!profile?.client_id) {
       toast.error('Geen client ID beschikbaar');
@@ -310,15 +420,60 @@ export default function LeadDatabase() {
         countries: targetCountries.length > 0 ? targetCountries : undefined,
         minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
         maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
-        maxResults: 1000, // Verhoogd naar 1000 voor meer resultaten
+        maxResults: 1000,
         clientIdentifier: profile.client_id,
       });
 
-      setMatchedLeads(result.leads);
-      toast.success(`${result.totalMatches} passende leads gevonden!`);
+      // Map exact lead data to expected format
+      const mappedLeads = result.leads.map(lead => ({
+        leadId: lead.leadId,
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        email: lead.email,
+        jobTitle: lead.jobTitle,
+        functionGroup: lead.functionGroup,
+        companyName: lead.companyName,
+        industry: lead.industry,
+        employeeCount: lead.employeeCount,
+        country: lead.country,
+        city: lead.city,
+        score: 100, // Exact matches get 100% score
+        isAlreadyContact: false, // Exact system already filters these out
+      }));
+      
+      setMatchedLeads(mappedLeads);
+      toast.success(
+        `🎯 ${result.totalMatches} EXACTE matches gevonden!`,
+        {
+          style: {
+            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+            color: 'white',
+            fontWeight: '600',
+            borderRadius: '12px',
+            border: 'none',
+            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
+            backdropFilter: 'blur(10px)',
+          },
+          duration: 3000,
+        }
+      );
     } catch (error) {
       console.error('Target audience search error:', error);
-      toast.error(`Fout bij zoeken: ${error.message}`);
+      toast.error(
+        `🚫 Fout bij zoeken: ${error.message}`,
+        {
+          style: {
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            color: 'white',
+            fontWeight: '600',
+            borderRadius: '12px',
+            border: 'none',
+            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+            backdropFilter: 'blur(10px)',
+          },
+          duration: 4000,
+        }
+      );
     } finally {
       setIsSearching(false);
     }
@@ -339,8 +494,41 @@ export default function LeadDatabase() {
         return;
       }
 
+      if (!automationName.trim()) {
+        toast.error(
+          '📝 Vul een naam in voor de automatisering',
+          {
+            style: {
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 3000,
+          }
+        );
+        return;
+      }
+
       if (!dailyLimit || dailyLimit === '' || dailyLimit < 1) {
-        toast.error('Vul een geldig aantal leads per dag in (minimaal 1)');
+        toast.error(
+          '🔢 Vul een geldig aantal leads per dag in (minimaal 1)',
+          {
+            style: {
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 3000,
+          }
+        );
         return;
       }
 
@@ -349,7 +537,7 @@ export default function LeadDatabase() {
         const automationId = await createClientAutomation({
           clientIdentifier: profile.client_id,
           templateId: basicTemplate._id,
-          customName: "Smart Conversie Automatisering",
+          customName: automationName.trim(),
           targetFunctionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
           targetIndustries: targetIndustries.length > 0 ? targetIndustries : undefined,
           targetCountries: targetCountries.length > 0 ? targetCountries : undefined,
@@ -359,10 +547,25 @@ export default function LeadDatabase() {
           executionTime: automationTime,
         });
 
-        toast.success(`Automatisering succesvol ingesteld: ${dailyLimit} leads per dag om ${automationTime}`);
+        toast.success(
+          `🤖 "${automationName}" ingesteld: ${dailyLimit} leads/dag om ${automationTime}`,
+          {
+            style: {
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
+        );
         setShowConversionModal(false);
         
         // Reset form
+        setAutomationName('');
         setTargetFunctionGroups([]);
         setTargetIndustries([]);
         setTargetCountries([]);
@@ -373,7 +576,21 @@ export default function LeadDatabase() {
         
       } catch (error) {
         console.error('Error creating automation:', error);
-        toast.error(`Fout bij aanmaken automatisering: ${error.message}`);
+        toast.error(
+          `⚙️ Fout bij aanmaken automatisering: ${error.message}`,
+          {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
+        );
       } finally {
         setIsConverting(false);
       }
@@ -396,17 +613,69 @@ export default function LeadDatabase() {
 
       if (result.success) {
         toast.success(
-          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd!`
+          `✨ ${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} geconverteerd met exacte matching!`,
+          {
+            style: {
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
         );
         setShowConversionModal(false);
         setMatchedLeads([]);
       } else {
-        toast.error('Er zijn fouten opgetreden tijdens de conversie');
-        result.errors.forEach(error => toast.error(error));
+        toast.error(
+          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontWeight: '600',
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+              backdropFilter: 'blur(10px)',
+            },
+            duration: 4000,
+          }
+        );
+        result.errors.forEach(error => 
+          toast.error(error, {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontWeight: '500',
+              borderRadius: '10px',
+              border: 'none',
+              boxShadow: '0 8px 20px rgba(239, 68, 68, 0.25)',
+            },
+            duration: 3000,
+          })
+        );
       }
     } catch (error) {
       console.error('Conversion error:', error);
-      toast.error(`Fout bij conversie: ${error.message}`);
+      toast.error(
+        `💥 Fout bij conversie: ${error.message}`,
+        {
+          style: {
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            color: 'white',
+            fontWeight: '600',
+            borderRadius: '12px',
+            border: 'none',
+            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
+            backdropFilter: 'blur(10px)',
+          },
+          duration: 4000,
+        }
+      );
     } finally {
       setIsConverting(false);
     }
@@ -504,7 +773,17 @@ export default function LeadDatabase() {
       header: "Aantal medewerkers",
       cell: ({ row }: { row: any }) => {
         const c: EnrichedContact = row.original;
-        return <div className="text-sm text-foreground/80">{c.company_size ?? c.employee_count ?? '—'}</div>;
+        // DEBUG: Log what values we have
+        console.log(`👥 Employee Count for ${c.first_name} ${c.last_name}:`, {
+          company_size: c.company_size,
+          employee_count: c.employee_count,
+          final_value: c.company_size ?? c.employee_count ?? '—'
+        });
+        
+        const employeeCount = c.company_size ?? c.employee_count;
+        const displayValue = employeeCount ? `${employeeCount} medewerkers` : '—';
+        
+        return <div className="text-sm text-foreground/80">{displayValue}</div>;
       },
     },
     {
@@ -570,7 +849,7 @@ export default function LeadDatabase() {
               Reset
             </Button>
           </div>
-          <p className="text-sm text-gray-600">{total} leads gevonden</p>
+          <p className="text-sm text-gray-600">{total} exacte matches</p>
         </div>
 
         {/* Filters Content */}
@@ -866,7 +1145,7 @@ export default function LeadDatabase() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Lead Database</h1>
               <div className="flex items-center gap-4 mt-1">
-                <div className="text-sm text-gray-600">{total} leads gevonden</div>
+                <div className="text-sm text-gray-600">{total} exacte matches</div>
                 {selectedLeads.size > 0 && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
                     <Users className="w-3 h-3 text-blue-600" />
@@ -1352,6 +1631,19 @@ Smart Conversie
                   <p className="text-sm text-gray-600">
                     Stel dagelijkse automatische conversie in met doelgroep criteria
                   </p>
+                </div>
+
+                {/* Automation Name */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">Automatisering Naam</Label>
+                  <Input
+                    type="text"
+                    placeholder="Bijv. Marketing Team Lead Conversie"
+                    value={automationName}
+                    onChange={(e) => setAutomationName(e.target.value)}
+                    className="h-10"
+                  />
+                  <p className="text-xs text-gray-500">Geef je automatisering een herkenbare naam</p>
                 </div>
 
                 {/* Doelgroep Criteria */}

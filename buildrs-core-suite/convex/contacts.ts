@@ -5,7 +5,7 @@ import { v } from "convex/values";
 export const list = query({
   args: { 
     companyId: v.optional(v.id("companies")),
-    clientId: v.optional(v.id("clients")),
+    clientId: v.optional(v.string()), // Accept string identifier for client
     search: v.optional(v.string()),
     status: v.optional(v.string()),
     limit: v.optional(v.number())
@@ -13,17 +13,26 @@ export const list = query({
   returns: v.array(v.object({
     _id: v.id("contacts"),
     _creationTime: v.number(),
-    companyId: v.optional(v.id("companies")),
-    clientId: v.optional(v.id("clients")),
+    leadId: v.id("leads"),
+    clientId: v.id("clients"),
+    companyId: v.id("companies"),
+    purchasedAt: v.number(),
+    status: v.optional(v.string()),
+    lastCommunicationAt: v.optional(v.number()),
+    optedIn: v.optional(v.boolean()),
+    fullEnrichment: v.optional(v.boolean()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
-    jobTitle: v.optional(v.string()),
-    status: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
-    mobilePhone: v.optional(v.string()),
-    seniority: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
     functionGroup: v.optional(v.string()),
+    name: v.optional(v.string()),
+    website: v.optional(v.string()),
+    companyLinkedinUrl: v.optional(v.string()),
+    industryLabel: v.optional(v.string()),
+    subindustryLabel: v.optional(v.string()),
+    companySummary: v.optional(v.string()),
+    shortCompanySummary: v.optional(v.string()),
   })),
   handler: async (ctx, args) => {
     let contacts = ctx.db.query("contacts");
@@ -31,7 +40,21 @@ export const list = query({
     if (args.companyId) {
       contacts = contacts.withIndex("by_company", (q) => q.eq("companyId", args.companyId));
     } else if (args.clientId) {
-      contacts = contacts.withIndex("by_client", (q) => q.eq("clientId", args.clientId));
+      // Find the actual client by string identifier
+      let actualClient = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), args.clientId))
+        .first();
+      
+      if (!actualClient) {
+        // NO FALLBACK - Return empty result if client not found
+        console.error(`❌ Client with ID ${args.clientId} not found - returning empty contacts list`);
+        return [];
+      }
+      
+      if (actualClient) {
+        contacts = contacts.withIndex("by_client", (q) => q.eq("clientId", actualClient._id));
+      }
     } else if (args.status) {
       contacts = contacts.withIndex("by_status", (q) => q.eq("status", args.status));
     }
