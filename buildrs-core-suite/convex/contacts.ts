@@ -5,7 +5,7 @@ import { v } from "convex/values";
 export const list = query({
   args: { 
     companyId: v.optional(v.id("companies")),
-    clientId: v.optional(v.string()), // Accept string identifier for client
+    clientId: v.optional(v.union(v.id("clients"), v.string())), // Accept both Convex ID and string
     search: v.optional(v.string()),
     status: v.optional(v.string()),
     limit: v.optional(v.number())
@@ -23,6 +23,8 @@ export const list = query({
     fullEnrichment: v.optional(v.boolean()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    mobilePhone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
     functionGroup: v.optional(v.string()),
@@ -40,20 +42,26 @@ export const list = query({
     if (args.companyId) {
       contacts = contacts.withIndex("by_company", (q) => q.eq("companyId", args.companyId));
     } else if (args.clientId) {
-      // Find the actual client by string identifier
-      let actualClient = await ctx.db
-        .query("clients")
-        .filter((q) => q.eq(q.field("domain"), args.clientId))
-        .first();
-      
-      if (!actualClient) {
-        // NO FALLBACK - Return empty result if client not found
-        console.error(`❌ Client with ID ${args.clientId} not found - returning empty contacts list`);
-        return [];
-      }
-      
-      if (actualClient) {
-        contacts = contacts.withIndex("by_client", (q) => q.eq("clientId", actualClient._id));
+      // Try to use clientId directly first (if it's a Convex ID)
+      try {
+        contacts = contacts.withIndex("by_client", (q) => q.eq("clientId", args.clientId as any));
+        console.log(`✅ Using clientId directly: ${args.clientId}`);
+      } catch (error) {
+        // Fallback: Find the actual client by string identifier (domain)
+        let actualClient = await ctx.db
+          .query("clients")
+          .filter((q) => q.eq(q.field("domain"), args.clientId))
+          .first();
+        
+        if (!actualClient) {
+          // NO FALLBACK - Return empty result if client not found
+          console.error(`❌ Client with ID ${args.clientId} not found - returning empty contacts list`);
+          return [];
+        }
+        
+        if (actualClient) {
+          contacts = contacts.withIndex("by_client", (q) => q.eq("clientId", actualClient._id));
+        }
       }
     } else if (args.status) {
       contacts = contacts.withIndex("by_status", (q) => q.eq("status", args.status));
@@ -61,11 +69,80 @@ export const list = query({
     
     contacts = contacts.order("desc");
     
+    let contactsList;
     if (args.limit) {
-      return await contacts.take(args.limit);
+      contactsList = await contacts.take(args.limit);
+    } else {
+      contactsList = await contacts.collect();
     }
     
-    return await contacts.collect();
+    // Enrich contacts with lead and company data
+    const enrichedContacts = await Promise.all(contactsList.map(async (contact) => {
+      try {
+        // Get lead data
+        const lead = await ctx.db.get(contact.leadId);
+        
+        // Get company data
+        const company = await ctx.db.get(contact.companyId);
+        
+        return {
+          ...contact,
+          // Add lead data
+          firstName: lead?.firstName || '',
+          lastName: lead?.lastName || '',
+          email: lead?.email || '',
+          mobilePhone: lead?.mobilePhone || '',
+          linkedinUrl: lead?.linkedinUrl || '',
+          jobTitle: lead?.jobTitle || '',
+          functionGroup: lead?.functionGroup || '',
+          // Add company data
+          name: company?.name || 'Unknown Company',
+          website: company?.website || '',
+          companyLinkedinUrl: company?.companyLinkedinUrl || '',
+          industryLabel: company?.industryLabel || '',
+          subindustryLabel: company?.subindustryLabel || '',
+          companySummary: company?.companySummary || '',
+          shortCompanySummary: company?.shortCompanySummary || '',
+        };
+      } catch (error) {
+        console.error(`Error enriching contact ${contact._id}:`, error);
+        return {
+          ...contact,
+          // Fallback data
+          firstName: '',
+          lastName: '',
+          email: '',
+          mobilePhone: '',
+          linkedinUrl: '',
+          jobTitle: '',
+          functionGroup: '',
+          name: 'Unknown Company',
+          website: '',
+          companyLinkedinUrl: '',
+          industryLabel: '',
+          subindustryLabel: '',
+          companySummary: '',
+          shortCompanySummary: '',
+        };
+      }
+    }));
+    
+    // Apply search filter if provided (after enrichment to search in lead/company data)
+    let filteredContacts = enrichedContacts;
+    if (args.search) {
+      const searchLower = args.search.toLowerCase();
+      filteredContacts = enrichedContacts.filter(contact => {
+        return (
+          contact.firstName?.toLowerCase().includes(searchLower) ||
+          contact.lastName?.toLowerCase().includes(searchLower) ||
+          contact.email?.toLowerCase().includes(searchLower) ||
+          contact.jobTitle?.toLowerCase().includes(searchLower) ||
+          contact.name?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+    
+    return filteredContacts;
   },
 });
 

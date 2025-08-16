@@ -10,7 +10,7 @@ const crons = cronJobs();
 // Ultra simple bulk convert - runs once per day
 crons.daily(
   "bulk-convert-automation",
-  { hourUTC: 9, minuteUTC: 0 }, // Run daily at 9:00 AM UTC (11:00 AM CET)
+  { hourUTC: 5, minuteUTC: 0 }, // Run daily at 5:00 AM UTC (7:00 AM CET)
   internal.bulkConvert.runBulkConvert
 );
 
@@ -27,6 +27,17 @@ crons.daily(
     minuteUTC: 0,
   },
   internal.apolloProcessor.dailyFunctionGroupEnrichment
+);
+
+// Daily fallback cronjob to enrich companies without companySummary
+// Runs every day at 03:00 AM (after function group enrichment)
+crons.daily(
+  "daily company summary enrichment",
+  {
+    hourUTC: 3, // 3 AM UTC
+    minuteUTC: 0,
+  },
+  internal.apolloProcessor.dailyCompanySummaryEnrichment
 );
 
 export default crons;

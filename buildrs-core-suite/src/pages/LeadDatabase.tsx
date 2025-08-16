@@ -310,7 +310,7 @@ export default function LeadDatabase() {
 
   const performConversion = async () => {
     if (selectedLeads.size === 0 || !profile?.client_id) {
-      toast.error('Geen leads geselecteerd of geen client ID beschikbaar');
+      toast.error('No leads selected or client unavailable');
       return;
     }
 
@@ -325,33 +325,33 @@ export default function LeadDatabase() {
 
       if (result.success) {
         toast.success(
-          `🎉 ${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd!`,
+          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} successfully converted`,
           {
             style: {
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#1f2937',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
-            duration: 4000,
+            duration: 3000,
           }
         );
         
         if (result.skippedCount > 0) {
           toast(
-            `⚠️ ${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} overgeslagen`,
+            `${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} skipped`,
             {
               style: {
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                color: 'white',
-                fontWeight: '600',
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)',
-                backdropFilter: 'blur(10px)',
+                background: '#ffffff',
+                color: '#92400e',
+                fontWeight: '500',
+                fontSize: '14px',
+                borderRadius: '8px',
+                border: '1px solid #fde68a',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               },
               duration: 3000,
             }
@@ -359,16 +359,16 @@ export default function LeadDatabase() {
         }
       } else {
         toast.error(
-          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          'Conversion failed',
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -419,7 +419,7 @@ export default function LeadDatabase() {
   // Target audience matching using NEW EXACT system
   const searchTargetAudience = async () => {
     if (!profile?.client_id) {
-      toast.error('Geen client ID beschikbaar');
+      toast.error('Client unavailable');
       return;
     }
 
@@ -454,16 +454,16 @@ export default function LeadDatabase() {
       
       setMatchedLeads(mappedLeads);
       toast.success(
-        `🎯 ${result.totalMatches} EXACTE matches gevonden!`,
+        `${result.totalMatches} matches found`,
         {
           style: {
-            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            color: 'white',
-            fontWeight: '600',
-            borderRadius: '12px',
-            border: 'none',
-            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
-            backdropFilter: 'blur(10px)',
+            background: '#ffffff',
+            color: '#1f2937',
+            fontWeight: '500',
+            fontSize: '14px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           },
           duration: 3000,
         }
@@ -471,7 +471,7 @@ export default function LeadDatabase() {
     } catch (error) {
       console.error('Target audience search error:', error);
       toast.error(
-        `🚫 Fout bij zoeken: ${error.message}`,
+        `Search failed: ${error.message}`,
         {
           style: {
             background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -563,18 +563,18 @@ export default function LeadDatabase() {
         });
 
         toast.success(
-          `🤖 Bulk convert ingesteld: ${dailyLimit} leads/dag (draait elke dag om 11:00)`,
+          `Bulk conversion configured: ${dailyLimit} leads per day`,
           {
             style: {
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#1f2937',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
-            duration: 4000,
+            duration: 3000,
           }
         );
         setShowConversionModal(false);
@@ -591,16 +591,16 @@ export default function LeadDatabase() {
       } catch (error) {
         console.error('Error creating Smart Conversion automation:', error);
         toast.error(
-          `⚙️ Fout bij aanmaken automatisering: ${error.message}`,
+          `Configuration failed: ${error.message}`,
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -645,16 +645,16 @@ export default function LeadDatabase() {
         setMatchedLeads([]);
       } else {
         toast.error(
-          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          'Conversion failed',
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -1795,11 +1795,6 @@ Smart Conversie
                     
                   </div>
 
-                  <div className="bg-blue-50 rounded p-3 mt-3">
-                    <p className="text-xs text-blue-700">
-                      🤖 Het systeem draait automatisch <strong>elke dag om 11:00</strong> en converteert de beste <strong>{dailyLimit || '[aantal]'} leads</strong> naar contacten.
-                    </p>
-                  </div>
                 </div>
 
                 {/* Bulk Convert is nu ultra simpel - geen lijst van automations meer nodig */}

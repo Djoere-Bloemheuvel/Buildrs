@@ -1,21 +1,26 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, Sparkles } from 'lucide-react'
-// Temporarily mock these functions until Convex is available
-const createPipeline = async (data: any) => ({ id: Date.now().toString(), ...data });
-const createStagesBulk = async (stages: any) => stages.map((s: any, i: number) => ({ id: (Date.now() + i).toString(), ...s }));
 import { useToast } from '@/hooks/use-toast'
+import { useConvexAuth } from '@/hooks/useConvexAuth'
+import type { Id } from '../../../convex/_generated/dataModel'
 
 type StageDraft = { name: string; probability: number }
 
 export default function NewPipelineModal({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
   const { toast } = useToast()
+  const { getClientId } = useConvexAuth()
+  const clientId = getClientId()
   const [name, setName] = useState('')
+  const [selectedPropositionId, setSelectedPropositionId] = useState<Id<"propositions"> | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
   const [stages, setStages] = useState<StageDraft[]>([
     { name: 'Prospect', probability: 10 },
     { name: 'Qualified', probability: 30 },
@@ -27,23 +32,83 @@ export default function NewPipelineModal({ open, onOpenChange, onCreated }: { op
   const addStage = () => setStages(prev => [...prev, { name: '', probability: 0 }])
   const removeStage = (idx: number) => setStages(prev => prev.filter((_, i) => i !== idx))
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!name.trim()) throw new Error('Naam is verplicht')
-      const pipeline = await createPipeline({ name: name.trim(), proposition_id: (undefined as any), client_id: (undefined as any) })
-      const payload = stages
-        .map((s, i) => ({ name: s.name.trim(), position: i + 1, default_probability: Math.max(0, Math.min(100, Number(s.probability) || 0)) }))
+  // Load propositions for the client
+  const propositions = useQuery(api.propositions.getByClient, clientId ? { clientId } : "skip")
+  
+  const createPipelineMutation = useMutation(api.pipelines.create)
+  const createStagesBulkMutation = useMutation(api.stages.createBulk)
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      toast({ title: 'Naam is verplicht', variant: 'destructive' })
+      return
+    }
+
+    if (!clientId) {
+      toast({ title: 'Geen client ID gevonden', variant: 'destructive' })
+      return
+    }
+
+    if (!selectedPropositionId) {
+      toast({ title: 'Selecteer een propositie', variant: 'destructive' })
+      return
+    }
+
+    setIsCreating(true)
+
+    try {
+      // Create pipeline first
+      const pipelineId = await createPipelineMutation({
+        name: name.trim(),
+        clientId,
+        propositionId: selectedPropositionId,
+        isDefault: true // Make first pipeline default
+      })
+
+      // Create stages
+      const stagePayload = stages
+        .map((s, i) => ({
+          name: s.name.trim(),
+          position: i + 1,
+          defaultProbability: Math.max(0, Math.min(100, Number(s.probability) || 0)),
+          pipelineId
+        }))
         .filter(s => s.name)
-      await createStagesBulk(pipeline.id, payload)
-    },
-    onSuccess: () => {
-      toast({ title: 'Pipeline aangemaakt' })
-      onOpenChange(false)
+
+      if (stagePayload.length > 0) {
+        await createStagesBulkMutation({ stages: stagePayload })
+      }
+
+      toast({ 
+        title: '✅ Pipeline aangemaakt', 
+        description: `${name} is succesvol aangemaakt`,
+        duration: 3000
+      })
+      
+      // Reset form state
       setName('')
+      setSelectedPropositionId(null)
+      setStages([
+        { name: 'Prospect', probability: 10 },
+        { name: 'Qualified', probability: 30 },
+        { name: 'Proposal', probability: 60 },
+        { name: 'Negotiation', probability: 80 },
+        { name: 'Won', probability: 95 },
+      ])
+      
+      // Close modal and refresh parent
+      onOpenChange(false)
       onCreated()
-    },
-    onError: (e: any) => toast({ title: 'Aanmaken mislukt', description: e?.message ?? 'Onbekende fout', variant: 'destructive' })
-  })
+    } catch (error: any) {
+      toast({ 
+        title: 'Aanmaken mislukt', 
+        description: error?.message || 'Er ging iets mis. Probeer het opnieuw.',
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,6 +125,27 @@ export default function NewPipelineModal({ open, onOpenChange, onCreated }: { op
             <div className="space-y-2">
               <Label>Naam</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Bijv. Sales NL" className="h-10" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Propositie</Label>
+              <Select value={selectedPropositionId || ""} onValueChange={(value) => setSelectedPropositionId(value as Id<"propositions">)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Selecteer een propositie" />
+                </SelectTrigger>
+                <SelectContent>
+                  {propositions?.map((prop) => (
+                    <SelectItem key={prop._id} value={prop._id}>
+                      {prop.name}
+                    </SelectItem>
+                  ))}
+                  {(!propositions || propositions.length === 0) && (
+                    <SelectItem value="" disabled>
+                      Geen proposities beschikbaar
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-3">
@@ -84,9 +170,16 @@ export default function NewPipelineModal({ open, onOpenChange, onCreated }: { op
         </ScrollArea>
 
         <DialogFooter className="p-6 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-            {mutation.isPending ? 'Aanmaken...' : 'Pipeline Aanmaken'}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>Annuleren</Button>
+          <Button onClick={handleSubmit} disabled={isCreating || !name.trim() || !selectedPropositionId} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+            {isCreating ? (
+              <>
+                <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Aanmaken...
+              </>
+            ) : (
+              'Pipeline Aanmaken'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

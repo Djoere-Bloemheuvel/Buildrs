@@ -116,4 +116,85 @@ http.route({
   }),
 });
 
+// HTTP endpoint for N8N company summary updates
+http.route({
+  path: "/update-company-summaries",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // Parse request body
+      const body = await request.text();
+      const data = JSON.parse(body);
+      
+      console.log("🏢 Company HTTP Request received:", data);
+      console.log("🏢 Request type:", typeof data);
+      console.log("🏢 Is array:", Array.isArray(data));
+      if (Array.isArray(data)) {
+        console.log("🏢 Array length:", data.length);
+        console.log("🏢 First item:", data[0]);
+      }
+      
+      // Handle both single object and array input
+      let dataArray;
+      if (Array.isArray(data)) {
+        dataArray = data;
+      } else if (data && typeof data === 'object') {
+        // Single object, wrap in array
+        dataArray = [data];
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Expected object or array of company updates" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Transform to expected format with validation
+      const companyUpdates = dataArray
+        .filter(item => {
+          const hasCompanySummary = item && item.companySummary;
+          const hasCompanyId = item && item.company_id;
+          console.log(`🔍 Filtering company item:`, { item, hasCompanySummary, hasCompanyId });
+          return hasCompanySummary && hasCompanyId;
+        })
+        .map(item => ({
+          company_id: item.company_id,
+          companySummary: item.companySummary,
+          shortCompanySummary: item.shortCompanySummary,
+          industryLabel: item.industryLabel,
+          subindustryLabel: item.subindustryLabel
+        }));
+      
+      // Check if we have valid data after filtering
+      if (companyUpdates.length === 0) {
+        return new Response(
+          JSON.stringify({ 
+            error: "No valid company updates found. Expected objects with 'companySummary' and 'company_id' fields.",
+            received: dataArray
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Call the action
+      const result = await ctx.runAction(api.apolloProcessor.updateCompanySummaries, {
+        companies: companyUpdates
+      });
+      
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+      
+    } catch (error) {
+      console.error("💥 Company HTTP Error:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: error instanceof Error ? error.message : "Internal error" 
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
+});
+
 export default http;

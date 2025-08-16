@@ -5,7 +5,8 @@ import { cronJobs } from "convex/server";
 
 // Simple webhook configuration
 const N8N_WEBHOOK_URL = "https://djoere.app.n8n.cloud/webhook/2f17f67f-40b2-4f33-af4a-fc1de64f2e35";
-const BATCH_SIZE = 100;
+const N8N_SECOND_WEBHOOK_URL = "https://djoere.app.n8n.cloud/webhook/70391270-80a4-4929-bae9-45993904f8ed";
+const BATCH_SIZE = 50; // Smaller batches for faster processing
 
 // Simple webhook function - no classes, no complexity
 async function sendWebhook(leads: Array<{id: string, jobTitle: string}>, clientId: string, batchNumber: number) {
@@ -37,6 +38,36 @@ async function sendWebhook(leads: Array<{id: string, jobTitle: string}>, clientI
   }
 }
 
+// Second webhook function for company data
+async function sendSecondWebhook(companies: Array<{domain: string, companyId: string}>, clientId: string, batchNumber: number) {
+  const payload = {
+    type: "company_batch_processed",
+    batch_number: batchNumber,
+    companies_in_batch: companies.length,
+    client_id: clientId,
+    timestamp: Date.now(),
+    domains: companies.map(c => c.domain),
+    company_ids: companies.map(c => c.companyId),
+    message: `Company batch ${batchNumber}: ${companies.length} companies processed`
+  };
+  
+  try {
+    const response = await fetch(N8N_SECOND_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Second webhook batch ${batchNumber} sent successfully`);
+    } else {
+      console.error(`❌ Second webhook failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.error(`💥 Second webhook error:`, error);
+  }
+}
+
 // Apollo.io data processor - replicates N8N workflow logic
 export const processApolloData = action({
   args: {
@@ -56,7 +87,11 @@ export const processApolloData = action({
     
     // Simple tracking variables
     const processedLeads: Array<{id: string, jobTitle: string}> = [];
+    const processedCompanies: Array<{domain: string, companyId: string}> = [];
+    const seenDomains = new Set<string>(); // Track domains to prevent duplicates
+    const companyEnrichmentCache = new Map<string, boolean>(); // Cache fullEnrichment status
     let batchNumber = 0;
+    let companyBatchNumber = 0;
     
     // Validate URL format
     try {
@@ -128,7 +163,7 @@ export const processApolloData = action({
     let filteredOut = 0;
     
     // 2. Process entries in BATCHES with ADVANCED ERROR RECOVERY & PROGRESS TRACKING
-    const WAIT_TIME = 2000; // 2 seconds between batches to avoid rate limits
+    const WAIT_TIME = 500; // 0.5 seconds between batches for faster processing
     const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
     const failedEntries: any[] = [];
     
@@ -155,15 +190,38 @@ export const processApolloData = action({
               companiesCreated++;
             }
             
+            // Track company for second webhook (prevent duplicates by domain + check if needs enrichment)
+            if (processedContact.companyId && processedContact.companyDomain) {
+              if (!seenDomains.has(processedContact.companyDomain)) {
+                seenDomains.add(processedContact.companyDomain);
+                
+                // Send all companies to webhook (simplified)
+                processedCompanies.push({ 
+                  domain: processedContact.companyDomain, 
+                  companyId: processedContact.companyId 
+                });
+                console.log(`🏢 Company added to webhook queue: ${processedContact.companyDomain} (${processedCompanies.length}/${BATCH_SIZE})`);
+                
+                // Check if we should send company webhook
+                if (processedCompanies.length >= BATCH_SIZE) {
+                  companyBatchNumber++;
+                  console.log(`📤 Sending company webhook batch ${companyBatchNumber} with ${processedCompanies.length} companies`);
+                  await sendSecondWebhook(processedCompanies.splice(0, BATCH_SIZE), clientId, companyBatchNumber);
+                }
+              }
+            }
+            
             // Only track if lead was created
             if (processedContact.leadCreated && processedContact.leadId) {
               const jobTitle = processedContact.jobTitle || 'Unknown';
               
               processedLeads.push({ id: processedContact.leadId, jobTitle });
+              console.log(`📊 Lead added to webhook queue: ${processedContact.leadId} (${processedLeads.length}/${BATCH_SIZE})`);
               
               // Check if we should send webhook
               if (processedLeads.length >= BATCH_SIZE) {
                 batchNumber++;
+                console.log(`📤 Sending lead webhook batch ${batchNumber} with ${processedLeads.length} leads`);
                 await sendWebhook(processedLeads.splice(0, BATCH_SIZE), clientId, batchNumber);
               }
             }
@@ -206,6 +264,35 @@ export const processApolloData = action({
               companiesCreated++;
             }
             
+            // Track company for second webhook in retry (prevent duplicates by domain + check if needs enrichment)
+            if (processedContact.companyId && processedContact.companyDomain) {
+              if (!seenDomains.has(processedContact.companyDomain)) {
+                seenDomains.add(processedContact.companyDomain);
+                
+                // Only send companies that don't have fullEnrichment yet (cached)
+                let needsEnrichment = companyEnrichmentCache.get(processedContact.companyId);
+                if (needsEnrichment === undefined) {
+                  const company = await ctx.db.get(processedContact.companyId);
+                  needsEnrichment = !company?.fullEnrichment;
+                  companyEnrichmentCache.set(processedContact.companyId, needsEnrichment);
+                }
+                
+                if (needsEnrichment) {
+                  processedCompanies.push({ 
+                    domain: processedContact.companyDomain, 
+                    companyId: processedContact.companyId 
+                  });
+                  
+                  if (processedCompanies.length >= BATCH_SIZE) {
+                    companyBatchNumber++;
+                    await sendSecondWebhook(processedCompanies.splice(0, BATCH_SIZE), clientId, companyBatchNumber);
+                  }
+                } else {
+                  console.log(`⚠️ Skipping company ${processedContact.companyDomain} - already fully enriched (retry)`);
+                }
+              }
+            }
+            
             // Only track if lead was created in retry
             if (processedContact.leadCreated && processedContact.leadId) {
               processedLeads.push({ id: processedContact.leadId, jobTitle: processedContact.jobTitle || 'Unknown' });
@@ -241,7 +328,15 @@ export const processApolloData = action({
     // Send any remaining leads
     if (processedLeads.length > 0) {
       batchNumber++;
+      console.log(`📤 Sending final lead webhook batch ${batchNumber} with ${processedLeads.length} remaining leads`);
       await sendWebhook(processedLeads, clientId, batchNumber);
+    }
+    
+    // Send any remaining companies to second webhook
+    if (processedCompanies.length > 0) {
+      companyBatchNumber++;
+      console.log(`📤 Sending final company webhook batch ${companyBatchNumber} with ${processedCompanies.length} remaining companies`);
+      await sendSecondWebhook(processedCompanies, clientId, companyBatchNumber);
     }
     
     return {
@@ -585,7 +680,6 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
-        clientId,
       });
       companyCreated = true;
       console.log(`🏢 Created new company via email domain: ${emailDomain}`);
@@ -616,7 +710,6 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
-        clientId,
       });
       companyCreated = true;
       console.log(`🏢 Created new company via scraped domain: ${companyData.domain}`);
@@ -647,7 +740,6 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
         country: companyData.country,
         state: companyData.state,
         city: companyData.city,
-        clientId,
       });
       companyCreated = true;
       console.log(`🏢 Created new company via name only: ${companyData.name}`);
@@ -703,6 +795,7 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
     action: 'created', 
     leadId,
     companyId, 
+    companyDomain: companyData.domain, // Add domain for second webhook
     companyCreated,
     leadCreated,
     jobTitle: contactData.jobTitle,
@@ -1910,11 +2003,11 @@ export const createCompany = mutation({
     country: v.optional(v.string()),
     state: v.optional(v.string()),
     city: v.optional(v.string()),
-    clientId: v.string(),
+    // clientId removed - companies are global, not client-specific
   },
   returns: v.id("companies"),
   handler: async (ctx, args) => {
-    const { clientId, ...companyData } = args;
+    const companyData = args;
     
     // Parse companySize to ensure it's a number
     const parsedCompanySize = parseNumber(companyData.companySize);
@@ -2097,6 +2190,122 @@ export const dailyFunctionGroupEnrichment = action({
 
 // sendWebhookFallback removed - using original sendWebhook function for exact same payload
 
+// ===============================
+// COMPANY FALLBACK CRONJOB
+// ===============================
+
+// Daily fallback cronjob to enrich companies without companySummary
+export const dailyCompanySummaryEnrichment = action({
+  args: {},
+  returns: v.object({
+    processed: v.number(),
+    batches_sent: v.number(),
+    companies_found: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx) => {
+    console.log("🏢 COMPANY FALLBACK CRONJOB: Starting daily company summary enrichment...");
+    
+    const MAX_COMPANIES = 500;
+    const now = Date.now();
+    
+    try {
+      // Get companies without companySummary (max 500)
+      const companiesWithoutSummary = await ctx.runQuery(internal.apolloProcessor.getCompaniesWithoutSummary, {
+        limit: MAX_COMPANIES,
+      });
+      
+      if (companiesWithoutSummary.length === 0) {
+        console.log("✅ COMPANY FALLBACK: No companies found without summary");
+        return {
+          processed: 0,
+          batches_sent: 0,
+          companies_found: 0,
+          message: "No companies found without summary - all companies are enriched",
+        };
+      }
+      
+      console.log(`🏢 COMPANY FALLBACK: Found ${companiesWithoutSummary.length} companies without summary`);
+      
+      // Send ALL companies in 1 single batch (regardless of count: 1, 29, 341, or 500)
+      console.log(`📤 COMPANY FALLBACK: Sending ALL ${companiesWithoutSummary.length} companies to N8N in 1 batch...`);
+      
+      // companiesWithoutSummary already contains only domain and _id
+      const companiesForWebhook = companiesWithoutSummary.map(company => ({
+        domain: company.domain || "unknown.com",
+        companyId: company._id
+      }));
+      
+      // Send to N8N with EXACT same payload structure as Apollo import
+      await sendSecondWebhook(companiesForWebhook, "company_fallback_system", 1);
+      
+      // Mark these companies as processed (update timestamp)
+      await ctx.runMutation(internal.apolloProcessor.markCompaniesAsProcessed, {
+        companyIds: companiesWithoutSummary.map(company => company._id),
+        processedAt: now,
+      });
+      
+      console.log(`✅ COMPANY FALLBACK COMPLETE: Processed ${companiesWithoutSummary.length} companies in 1 batch`);
+      
+      return {
+        processed: companiesWithoutSummary.length,
+        batches_sent: 1, // Always 1 batch now
+        companies_found: companiesWithoutSummary.length,
+        message: `Successfully sent ${companiesWithoutSummary.length} companies without summary to N8N for enrichment in 1 batch`,
+      };
+      
+    } catch (error) {
+      console.error("❌ COMPANY FALLBACK ERROR:", error);
+      return {
+        processed: 0,
+        batches_sent: 0,
+        companies_found: 0,
+        message: `Company fallback enrichment failed: ${error}`,
+      };
+    }
+  },
+});
+
+// Query to get companies without companySummary
+export const getCompaniesWithoutSummary = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.object({
+    _id: v.id("companies"),
+    domain: v.optional(v.string()),
+  })),
+  handler: async (ctx, { limit = 500 }) => {
+    console.log(`🔍 COMPANY FALLBACK QUERY: Looking for companies without summary (MAXIMUM: ${limit})...`);
+    
+    // Get companies without companySummary, ordered by oldest first
+    // MAXIMUM 500 companies regardless of what's available
+    const companies = await ctx.db
+      .query("companies")
+      .filter((q) => 
+        q.and(
+          q.neq(q.field("domain"), undefined), // Must have domain
+          q.neq(q.field("domain"), ""), // Domain must not be empty
+          q.or(
+            q.eq(q.field("companySummary"), undefined), // No summary
+            q.eq(q.field("companySummary"), ""), // Empty summary
+            q.eq(q.field("companySummary"), null) // Null summary
+          )
+        )
+      )
+      .order("asc") // Oldest first
+      .take(Math.min(limit, 500)); // Ensure MAXIMUM 500
+    
+    console.log(`🏢 COMPANY FALLBACK QUERY: Found ${companies.length} companies without summary`);
+    
+    // Return only the fields we need for the webhook
+    return companies.map(company => ({
+      _id: company._id,
+      domain: company.domain,
+    }));
+  },
+});
+
 // Query to get leads without function group
 export const getLeadsWithoutFunctionGroup = query({
   args: {
@@ -2169,6 +2378,41 @@ export const markLeadsAsProcessed = mutation({
   },
 });
 
+// Mutation to mark companies as processed (similar to leads)
+export const markCompaniesAsProcessed = mutation({
+  args: {
+    companyIds: v.array(v.id("companies")),
+    processedAt: v.number(),
+  },
+  returns: v.object({
+    updated: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { companyIds, processedAt }) => {
+    let updated = 0;
+    
+    for (const companyId of companyIds) {
+      try {
+        await ctx.db.patch(companyId, {
+          lastUpdatedAt: processedAt,
+          // Add a field to track that this company was processed by fallback
+          lastFallbackProcessedAt: processedAt,
+        });
+        updated++;
+      } catch (error) {
+        console.error(`❌ Failed to update company ${companyId}:`, error);
+      }
+    }
+    
+    console.log(`✅ COMPANY FALLBACK: Marked ${updated} companies as processed`);
+    
+    return {
+      updated,
+      message: `Successfully marked ${updated} companies as processed`,
+    };
+  },
+});
+
 // ===============================
 // MANUAL TEST FUNCTIONS
 // ===============================
@@ -2194,6 +2438,129 @@ export const testFallbackEnrichment = action({
       ...testResult,
       message: `TEST COMPLETED: ${testResult.message}`,
     };
+  },
+});
+
+// Manual test function to run company fallback enrichment (for testing)
+export const testCompanyFallbackEnrichment = action({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    processed: v.number(),
+    batches_sent: v.number(),
+    companies_found: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { limit = 50 }) => {
+    console.log(`🧪 TEST COMPANY FALLBACK: Running manual test with limit ${limit}...`);
+    
+    // Use smaller limit for testing
+    const testResult = await ctx.runAction(internal.apolloProcessor.dailyCompanySummaryEnrichment, {});
+    
+    return {
+      ...testResult,
+      message: `COMPANY TEST COMPLETED: ${testResult.message}`,
+    };
+  },
+});
+
+// ===============================
+// COMPANY SUMMARY UPDATE FROM N8N
+// ===============================
+
+// Update company summaries from N8N enrichment
+export const updateCompanySummaries = action({
+  args: {
+    companies: v.array(v.object({
+      company_id: v.string(),
+      companySummary: v.string(),
+      shortCompanySummary: v.optional(v.string()),
+      industryLabel: v.optional(v.string()),
+      subindustryLabel: v.optional(v.string()),
+    }))
+  },
+  returns: v.object({
+    updated: v.number(),
+    failed: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { companies }) => {
+    console.log(`🏢 UPDATING COMPANIES: Received ${companies.length} company updates from N8N`);
+    
+    let updated = 0;
+    let failed = 0;
+    const now = Date.now();
+    
+    for (const company of companies) {
+      try {
+        console.log(`🏢 Updating company ${company.company_id} with summary length: ${company.companySummary.length}`);
+        
+        // Update company in database
+        await ctx.runMutation(internal.apolloProcessor.updateSingleCompany, {
+          companyId: company.company_id,
+          companySummary: company.companySummary,
+          shortCompanySummary: company.shortCompanySummary,
+          industryLabel: company.industryLabel,
+          subindustryLabel: company.subindustryLabel,
+          updatedAt: now,
+        });
+        
+        updated++;
+        console.log(`✅ Successfully updated company ${company.company_id}`);
+        
+      } catch (error) {
+        failed++;
+        console.error(`❌ Failed to update company ${company.company_id}:`, error);
+      }
+    }
+    
+    const message = `Updated ${updated} companies successfully, ${failed} failed`;
+    console.log(`🏢 COMPANY UPDATE COMPLETE: ${message}`);
+    
+    return {
+      updated,
+      failed,
+      message,
+    };
+  },
+});
+
+// Internal mutation to update a single company
+export const updateSingleCompany = mutation({
+  args: {
+    companyId: v.string(),
+    companySummary: v.string(),
+    shortCompanySummary: v.optional(v.string()),
+    industryLabel: v.optional(v.string()),
+    subindustryLabel: v.optional(v.string()),
+    updatedAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { companyId, updatedAt, ...updateFields } = args;
+    
+    // Filter out undefined values
+    const cleanUpdateFields: any = {
+      lastUpdatedAt: updatedAt,
+      fullEnrichment: true, // Mark as fully enriched when summary data comes in
+    };
+    
+    if (updateFields.companySummary) {
+      cleanUpdateFields.companySummary = updateFields.companySummary;
+    }
+    if (updateFields.shortCompanySummary) {
+      cleanUpdateFields.shortCompanySummary = updateFields.shortCompanySummary;
+    }
+    if (updateFields.industryLabel) {
+      cleanUpdateFields.industryLabel = updateFields.industryLabel;
+    }
+    if (updateFields.subindustryLabel) {
+      cleanUpdateFields.subindustryLabel = updateFields.subindustryLabel;
+    }
+    
+    console.log(`✅ Setting fullEnrichment=true for company ${companyId} after receiving summary data`);
+    await ctx.db.patch(companyId as any, cleanUpdateFields);
   },
 });
 

@@ -663,57 +663,33 @@ export default function LeadEmail() {
     return Number.isFinite(n) && n > 0 ? n : 50;
   });
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(() => localStorage.getItem('n8nCampaignId') || undefined);
-  const campaignsQuery = useQuery({
-    queryKey: ['campaigns-email', profile?.client_id],
-    queryFn: async () => {
-      let query = supabase.from('campaigns').select('id, name, status, created_at, proposition_id, client_id, campaign_purpose, propositions(name)').eq('type', 'email').order('created_at', {
-        ascending: false
-      });
-      if (profile?.client_id) query = query.eq('client_id', profile.client_id);
-      const {
-        data,
-        error
-      } = (await query) as any;
-      if (error) throw error;
-      
-      // Add mock stats for demonstration
-      const campaignsWithStats = (data ?? []).map((campaign: any) => ({
-        ...campaign,
-        stats: {
-          sent: Math.floor(Math.random() * 1000) + 100,
-          replies: Math.floor(Math.random() * 50) + 5,
-          replyRate: Math.floor(Math.random() * 20) + 5,
-          conversions: Math.floor(Math.random() * 10) + 1
-        }
-      }));
-      return campaignsWithStats;
-    },
-    enabled: true,
-    staleTime: 60_000
-  });
+  // Email campaigns from Convex
+  const campaignsData = useQuery(api.campaigns.list, 
+    profile?.client_id ? { 
+      clientId: profile.client_id as any,
+      type: "email" 
+    } : "skip"
+  );
 
-  // Query cold email candidates from the view with client_id filter
-  const candidatesQuery = useQuery({
-    queryKey: ['cold-email-candidates-view', profile?.client_id],
-    queryFn: async () => {
-      if (!profile?.client_id) return 0;
-      const {
-        count,
-        error
-      } = await supabase.from('v_cold_email_candidates_assignable' as any).select('contact_id', {
-        count: 'exact',
-        head: true
-      }).eq('client_id', profile.client_id);
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!profile?.client_id,
-    staleTime: 60_000
-  });
+  // Add mock stats for demonstration
+  const campaignsWithStats = useMemo(() => {
+    return (campaignsData ?? []).map((campaign: any) => ({
+      ...campaign,
+      stats: {
+        sent: Math.floor(Math.random() * 1000) + 100,
+        replies: Math.floor(Math.random() * 50) + 5,
+        replyRate: Math.floor(Math.random() * 20) + 5,
+        conversions: Math.floor(Math.random() * 10) + 1
+      }
+    }));
+  }, [campaignsData]);
+
+  // For now, return a placeholder count - this can be enhanced later with a proper Convex query
+  const candidatesCount = 150; // Mock count of available email candidates
 
   // Calculate aggregated stats
   const aggregatedStats = useMemo(() => {
-    const campaigns = campaignsQuery.data ?? [];
+    const campaigns = campaignsWithStats ?? [];
     const totalSent = campaigns.reduce((sum, c) => sum + (c.stats?.sent || 0), 0);
     const totalReplies = campaigns.reduce((sum, c) => sum + (c.stats?.replies || 0), 0);
     const totalConversions = campaigns.reduce((sum, c) => sum + (c.stats?.conversions || 0), 0);
@@ -724,264 +700,112 @@ export default function LeadEmail() {
       replies: totalReplies,
       conversions: totalConversions
     };
-  }, [campaignsQuery.data]);
-  const createMutation = useMutation({
-    mutationFn: async () => {
+  }, [campaignsWithStats]);
+  const createCampaign = useMutation(api.campaigns.create);
+
+  const handleCreateCampaign = async () => {
+    try {
       if (!name.trim()) throw new Error('Naam is verplicht');
-      // Build audience_filter uit velden (minimaal één targetingveld vereist)
-      const parseList = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
-      const function_group = audFunctions;
-      const industry = audIndustries;
-      // Converteer subindustry van slugs -> labels, zodat DB-functies op labels kunnen matchen
-      const subindustry = audSubindustries.map(v => subLabelByValue.get(v) ?? v);
-      // Stuur labels door i.p.v. codes/slugs
-      const country = audCountry.map(c => countryLabelByValue.get(c) ?? c);
-      const state = audState.map(s => stateLabelByValue.get(s) ?? s);
+      if (!propositionId) throw new Error('Propositie is verplicht');
+      if (!profile?.client_id) throw new Error('Client ID is vereist');
+      
+      // Build targeting criteria
       const company_size_min = audSizeMin.trim() ? Number(audSizeMin) : undefined;
       const company_size_max = audSizeMax.trim() ? Number(audSizeMax) : undefined;
-      if (audSizeMin && Number.isNaN(company_size_min) || audSizeMax && Number.isNaN(company_size_max)) {
+      
+      if ((audSizeMin && Number.isNaN(company_size_min)) || (audSizeMax && Number.isNaN(company_size_max))) {
         throw new Error('Bedrijfsgrootte moet een nummer zijn');
       }
-      const audience_filter: any = {
-        target_contact_status: ['cold']
-      };
-      if (function_group.length) audience_filter.function_group = function_group;
-      if (industry.length) audience_filter.industry = industry;
-      if (subindustry.length) audience_filter.subindustry = subindustry;
-      if (country.length) audience_filter.country = country;
-      if (state.length) audience_filter.state = state;
-      if (company_size_min !== undefined) audience_filter.company_size_min = company_size_min;
-      if (company_size_max !== undefined) audience_filter.company_size_max = company_size_max;
-      const hasAny = function_group.length > 0 || industry.length > 0 || subindustry.length > 0 || country.length > 0 || state.length > 0 || company_size_min !== undefined || company_size_max !== undefined;
-      if (!hasAny) {
-        throw new Error('Audience filter is verplicht: vul minimaal één targetingveld in (functie, industrie, subindustrie, locatie of bedrijfsgrootte)');
-      }
-      const payload: any = { 
-        name: name.trim(), 
-        type: 'email',
-        description: description.trim() || null,
-        status: 'draft',
-        audience_filter,
-        proposition_id: propositionId ?? undefined
-      };
-      if (profile?.client_id) payload.client_id = profile.client_id;
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert(payload)
-        .select('id')
-        .single();
-      if (error) throw error;
-      return { row: data, payload } as any;
-    },
-    onSuccess: ({ row, payload }: any) => {
-      const WEBHOOK_URL = 'https://djoere.app.n8n.cloud/webhook/5fd94198-71d7-49e2-9bd4-2f18a2731106';
-      const TIMEOUT_MS = 15000;
-      const MIN_WAIT_MS = 5000;
+      
+      const hasAny = audFunctions.length > 0 || audIndustries.length > 0 || audSubindustries.length > 0 || audCountry.length > 0 || audState.length > 0 || company_size_min !== undefined || company_size_max !== undefined;
+      if (!hasAny) throw new Error('Audience filter is verplicht: vul minimaal één targetingveld in');
 
-      const send = async (url: string, name: string, body: any) => {
-        const controller = new AbortController();
-        const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
-        try {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            cache: 'no-store',
-            keepalive: true,
-            body: JSON.stringify(body),
-            signal: controller.signal,
-          });
-          if (!res.ok) {
-            const text = await res.text().catch(()=> '');
-            throw new Error(`${name} webhook fout: ${res.status} ${text}`);
-          }
-          return true;
-        } catch (err: any) {
-          if (err?.name === 'AbortError') {
-            throw new Error(`${name} webhook timeout na ${TIMEOUT_MS/1000}s`);
-          }
-          throw err;
-        } finally {
-          window.clearTimeout(timer);
+      setProcessingOpen(true);
+      const started = Date.now();
+      const total = 8000;
+      const interval = window.setInterval(() => {
+        const elapsed = Date.now() - started;
+        const pct = Math.max(5, Math.min(99, Math.round((elapsed / total) * 100)));
+        setProcessingProgress(pct);
+      }, 200);
+      
+      const campaignData = {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        status: 'draft' as const,
+        type: 'email' as const,
+        clientId: profile.client_id,
+        propositionId: propositionId,
+        targetingCriteria: {
+          functionGroups: audFunctions,
+          industries: audIndustries,
+          subindustries: audSubindustries,
+          countries: audCountry,
+          states: audState,
+          companySizeMin: company_size_min,
+          companySizeMax: company_size_max
+        },
+        settings: {
+          dailyMessageLimit: 100
         }
       };
-
-      const run = async () => {
-        if (row?.id) {
-          // Mark this campaign as being prepared by AI for up to 60 seconds. The editor will show a loader until
-          // either this time elapses or initial email content is populated.
-          const until = Date.now() + 60_000
-          localStorage.setItem(`email_campaign_ai_until_${row.id}`, String(until))
-        }
-        setProcessingOpen(true);
-        const started = Date.now();
-        const total = 60_000;
-        const interval = window.setInterval(() => {
-          const elapsed = Date.now() - started;
-          const pct = Math.max(5, Math.min(99, Math.round((elapsed / total) * 100)));
-          setProcessingProgress(pct);
-        }, 500);
-        const webhookPayload = {
-          client_id: payload.client_id ?? profile?.client_id ?? null,
-          campaign_id: row?.id ?? null,
-          campaign: payload,
-          event: 'campaign_created',
-        };
-        let errorMsg: string | null = null;
-        try {
-          // Stuur productie webhook
-          await send(WEBHOOK_URL, 'Prod', webhookPayload);
-        } catch (e: any) {
-          errorMsg = e?.message || 'Onbekende fout';
-        }
-        // Wacht tot email_a is gevuld of tot 60s is verstreken
-        const deadline = started + 60_000;
-        while (Date.now() < deadline) {
-          try {
-            const { data: fresh } = await supabase
-              .from('campaigns')
-              .select('email_a')
-              .eq('id', row?.id)
-              .single();
-            if (fresh && (fresh as any).email_a) break;
-          } catch {}
-          await new Promise(r => setTimeout(r, 2000));
-        }
+      
+      const campaignId = await createCampaign(campaignData);
+      
+      const finish = () => {
         setProcessingProgress(100);
         window.clearInterval(interval);
-        setProcessingOpen(false);
-
-        // Reset velden en navigeer
-        setOpenNew(false);
-        setName('');
-        setDescription('');
-        setAudFunctions([]);
-        setAudIndustries([]);
-        setAudSubindustries([]);
-        setAudCountry([]);
-        setAudState([]);
-        setAudSizeMin('');
-        setAudSizeMax('');
-        setPropositionId(null);
-        campaignsQuery.refetch();
-
-        if (errorMsg) {
-          toast({ title: 'Campagne aangemaakt, maar webhook faalde', description: errorMsg });
-        } else {
-          toast({ title: 'Campagne aangemaakt' });
-        }
-        if (row?.id) navigate(`/lead-engine/email/${row.id}`);
+        setTimeout(() => {
+          setProcessingOpen(false);
+          setOpenNew(false);
+          setName('');
+          setDescription('');
+          setAudFunctions([]);
+          setAudIndustries([]);
+          setAudSubindustries([]);
+          setAudCountry([]);
+          setAudState([]);
+          setAudSizeMin('');
+          setAudSizeMax('');
+          setPropositionId(null);
+          
+          toast({ 
+            title: 'Email Campaign Created', 
+            description: 'Your campaign is ready to be configured and launched.' 
+          });
+          
+          if (campaignId) navigate(`/lead-engine/email/${campaignId}`);
+        }, 500);
       };
-      // fire and forget
-      run();
-    },
-    onError: (e: any) => {
+      
+      setTimeout(finish, total);
+    } catch (error: any) {
       setProcessingOpen(false);
-      setProcessingProgress(0);
-      toast({ title: 'Mislukt', description: e?.message ?? 'Onbekende fout' });
+      toast({ title: 'Mislukt', description: error?.message ?? 'Onbekende fout' });
     }
-  });
+  };
+
+  const createMutation = {
+    isPending: false,
+    mutate: handleCreateCampaign
+  };
 
   // helper: map campaign_id -> proposition_id
   const campaignToProposition = useMemo(() => {
     const map = new Map<string, string | null>();
-    for (const c of campaignsQuery.data ?? []) map.set(c.id, c.proposition_id ?? null);
+    for (const c of campaignsData ?? []) map.set(c._id, c.propositionId ?? null);
     return map;
-  }, [campaignsQuery.data]);
+  }, [campaignsData]);
 
-  // Verstuur naar vaste n8n webhooks met X kandidaten
-  const dispatchMutation = useMutation({
-    mutationFn: async () => {
-      if (!profile?.client_id) throw new Error('Geen client actief');
-      if (!dailyCount || dailyCount <= 0) throw new Error('Aantal per dag moet groter dan 0 zijn');
+  // Verstuur naar vaste n8n webhooks met X kandidaten - temporarily disabled
+  const dispatchMutation = {
+    isPending: false,
+    mutate: () => {
+      toast({ title: 'Feature temporarily disabled', description: 'Smart Assign is being migrated to Convex' });
+    }
+  };
 
-      // 1) Haal X kandidaten op uit de view
-      let query = supabase.from('v_cold_email_candidates_assignable' as any).select('contact_id, email, first_name, last_name, company_name, domain, job_title, function_group, location, suggested_campaign_id, last_communication_at, total_campaigns', {
-        count: 'exact'
-      }).eq('client_id', profile.client_id).not('email', 'is', null).not('suggested_campaign_id', 'is', null).order('total_campaigns', {
-        ascending: true
-      }).order('last_communication_at', {
-        ascending: true,
-        nullsFirst: true
-      }).limit(dailyCount);
-      const {
-        data: rows,
-        error
-      } = (await query) as any;
-      if (error) throw error;
-      const candidates = (rows ?? []).map((r: any) => ({
-        contact_id: r.contact_id,
-        email: r.email,
-        first_name: r.first_name,
-        last_name: r.last_name,
-        company_name: r.company_name,
-        domain: r.domain,
-        job_title: r.job_title,
-        function_group: r.function_group,
-        location: r.location,
-        suggested_campaign_id: r.suggested_campaign_id,
-        last_communication_at: r.last_communication_at,
-        total_campaigns: r.total_campaigns
-      }));
-      if (candidates.length === 0) throw new Error('Geen kandidaten gevonden voor dispatch');
 
-      // 2) Stuur naar n8n webhook (productie)
-      const PROD_URL = 'https://djoere.app.n8n.cloud/webhook/861fdee9-5c3c-4269-8116-e9f9c982bde8';
-      const TIMEOUT_MS = 15000;
-      const proposition_id = selectedCampaignId ? campaignToProposition.get(selectedCampaignId) ?? null : null;
-      const payload = {
-        client_id: profile.client_id,
-        campaign_id: selectedCampaignId || null,
-        proposition_id,
-        count: dailyCount,
-        candidates
-      };
-      const send = async (url: string, name: string) => {
-        const controller = new AbortController();
-        const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
-        try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-          keepalive: true,
-          body: JSON.stringify(payload),
-            signal: controller.signal,
-          });
-        if (!res.ok) {
-            const text = await res.text().catch(() => '');
-            throw new Error(`${name} webhook fout: ${res.status} ${text}`);
-        }
-          return true;
-        } catch (err: any) {
-          if (err?.name === 'AbortError') {
-            throw new Error(`${name} webhook timeout na ${TIMEOUT_MS / 1000}s`);
-      }
-          throw err;
-        } finally {
-          window.clearTimeout(timer);
-        }
-      };
-
-      // Stuur met duidelijke foutmelding
-      await send(PROD_URL, 'Prod');
-      return true;
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Automatisch toegewezen',
-        description: `${dailyCount} kandidaten doorgestuurd naar n8n (test + productie)`
-      });
-      candidatesQuery.refetch();
-      setAssignOpen(false);
-      // Persist instellingen (zonder webhook URL)
-      localStorage.setItem('n8nDailyCount', String(dailyCount));
-      if (selectedCampaignId) localStorage.setItem('n8nCampaignId', selectedCampaignId);
-    },
-    onError: (e: any) => toast({
-      title: 'Dispatch mislukt',
-      description: e?.message ?? 'Onbekende fout'
-  })
-  });
   return <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-950 dark:to-blue-950/30 min-h-screen">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1002,7 +826,7 @@ export default function LeadEmail() {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {candidatesQuery.data?.toLocaleString() || '0'} kandidaten
+                  {candidatesCount?.toLocaleString() || '0'} kandidaten
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Beschikbaar voor outreach
@@ -1011,7 +835,7 @@ export default function LeadEmail() {
             </div>
             <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={!candidatesQuery.data} className="border-gradient-to-r from-blue-500 to-purple-600 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-blue-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:border-blue-800 dark:hover:from-blue-950/30 dark:hover:to-purple-950/30 transition-all duration-300">
+                <Button variant="outline" size="sm" disabled={!candidatesCount} className="border-gradient-to-r from-blue-500 to-purple-600 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-blue-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:border-blue-800 dark:hover:from-blue-950/30 dark:hover:to-purple-950/30 transition-all duration-300">
                   <Brain className="w-3 h-3 mr-1" />
                   <span className="text-xs font-medium">Smart Assign AI</span>
                 </Button>
@@ -1381,9 +1205,9 @@ export default function LeadEmail() {
 
       {/* Campaigns Table */}
       <EmailCampaignsTable 
-        campaigns={campaignsQuery.data ?? []} 
-        isLoading={campaignsQuery.isLoading} 
-        onDeleted={() => campaignsQuery.refetch()}
+        campaigns={campaignsWithStats ?? []} 
+        isLoading={campaignsData === undefined} 
+        onDeleted={() => {}}
       />
     </div>;
 }

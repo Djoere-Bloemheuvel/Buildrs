@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Plus, Search, Building2, User, TrendingUp, Calendar, DollarSign, Target } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,80 +11,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import NewDealModal from '@/components/deals/NewDealModal';
 import NewPipelineModal from '@/components/deals/NewPipelineModal';
 import { useToast } from '@/hooks/use-toast';
-// Mock CRM functions until Convex is available
-const fetchPipelines = async () => [
-  { id: '1', name: 'Sales Pipeline NL', is_default: true },
-  { id: '2', name: 'Enterprise Sales', is_default: false }
-];
-
-const fetchStagesByPipeline = async (pipelineId: string) => [
-  { id: 'stage-1', name: 'Prospect', position: 1, pipeline_id: pipelineId, default_probability: 10 },
-  { id: 'stage-2', name: 'Qualified', position: 2, pipeline_id: pipelineId, default_probability: 30 },
-  { id: 'stage-3', name: 'Proposal', position: 3, pipeline_id: pipelineId, default_probability: 60 },
-  { id: 'stage-4', name: 'Negotiation', position: 4, pipeline_id: pipelineId, default_probability: 80 },
-  { id: 'stage-5', name: 'Won', position: 5, pipeline_id: pipelineId, default_probability: 95 }
-];
-
-const fetchDealsByPipeline = async (pipelineId: string) => [
-  {
-    id: 'deal-1',
-    title: 'Website redesign voor Acme Corp',
-    value: 25000,
-    currency: 'EUR',
-    status: 'open',
-    stage_id: 'stage-1',
-    confidence: 25,
-    companies: { name: 'Acme Corporation' }
-  },
-  {
-    id: 'deal-2',
-    title: 'CRM implementatie Tech Solutions',
-    value: 50000,
-    currency: 'EUR',
-    status: 'open',
-    stage_id: 'stage-2',
-    confidence: 40,
-    companies: { name: 'Tech Solutions BV' }
-  },
-  {
-    id: 'deal-3',
-    title: 'E-commerce platform upgrade',
-    value: 75000,
-    currency: 'EUR',
-    status: 'open',
-    stage_id: 'stage-3',
-    confidence: 65,
-    companies: { name: 'Digital Commerce Ltd' }
-  }
-];
-
-const moveDealToStage = async (dealId: string, stageId: string, confidence?: number) => {
-  console.log(`Moving deal ${dealId} to stage ${stageId} with confidence ${confidence}%`);
-  return { success: true };
-};
 import { currencyFormatter } from '@/utils';
 import { useConvexAuth } from '@/hooks/useConvexAuth';
 import { useNavigate } from 'react-router-dom';
+import type { Id } from "../../convex/_generated/dataModel";
 
 interface Deal {
-  id: string;
+  _id: Id<"deals">;
   title: string;
-  value: number;
+  value?: number;
   currency: string;
-  status: string;
-  stage_id: string;
+  stageId: Id<"stages">;
   confidence: number;
-  companies: {
+  companyId?: Id<"companies">;
+  companies?: {
     name: string;
   };
 }
 
 interface Stage {
-  id: string;
+  _id: Id<"stages">;
   name: string;
   position: number;
-  pipeline_id: string;
-  default_probability?: number;
+  pipelineId: Id<"pipelines">;
+  defaultProbability?: number;
+}
+
+interface Pipeline {
+  _id: Id<"pipelines">;
+  name: string;
+  isDefault?: boolean;
 }
 
 const stageColors = [
@@ -96,128 +53,51 @@ const stageColors = [
 
 const Deals = () => {
   const [search, setSearch] = useState('');
-  const [pipelines, setPipelines] = useState<any[]>([]);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [activePipeline, setActivePipeline] = useState<string | null>(null);
+  const [activePipeline, setActivePipeline] = useState<Id<"pipelines"> | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const { user, getClientId } = useConvexAuth();
-  // Use real client ID from authenticated user
-  const profile = { id: 'user-1', client_id: getClientId(), role: 'admin' };
+  const clientId = getClientId();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const qc = useQueryClient();
 
   // === FETCH PIPELINES ===
-  const { data: pipelinesData } = useQuery({
-    queryKey: ['pipelines'],
-    queryFn: () => fetchPipelines(),
-  });
+  const pipelinesData = useQuery(api.pipelines.getByClient, 
+    clientId ? { clientId } : "skip"
+  );
+  const pipelines = pipelinesData || [];
 
-  // Update pipelines state when data changes
+  // Auto-select default pipeline
   useEffect(() => {
-    if (pipelinesData) {
-      setPipelines(pipelinesData || []);
-      if (pipelinesData && pipelinesData.length > 0 && !activePipeline) {
-        const defaultPipeline = pipelinesData.find((p: any) => p.is_default) || pipelinesData[0];
-        setActivePipeline(defaultPipeline.id);
-      }
+    if (pipelines.length > 0 && !activePipeline) {
+      const defaultPipeline = pipelines.find((p: Pipeline) => p.isDefault) || pipelines[0];
+      setActivePipeline(defaultPipeline._id);
     }
-  }, [pipelinesData, activePipeline]);
+  }, [pipelines, activePipeline]);
 
   // === FETCH STAGES ===
-  const { data: stagesData } = useQuery({
-    queryKey: ['stages', activePipeline],
-    queryFn: () => activePipeline ? fetchStagesByPipeline(activePipeline) : Promise.resolve([]),
-    enabled: !!activePipeline,
-  });
-
-  // Update stages state when data changes
-  useEffect(() => {
-    if (stagesData) {
-      setStages(stagesData || []);
-    }
-  }, [stagesData]);
+  const stagesData = useQuery(api.stages.getByPipeline, 
+    activePipeline ? { pipelineId: activePipeline } : "skip"
+  );
+  const stages = stagesData || [];
 
   // === FETCH DEALS ===
-  const { data: dealsData } = useQuery({
-    queryKey: ['deals', activePipeline],
-    queryFn: () => activePipeline ? fetchDealsByPipeline(activePipeline) : Promise.resolve([]),
-    enabled: !!activePipeline,
-  });
-
-  // Update deals state when data changes
-  useEffect(() => {
-    if (dealsData) {
-      setDeals(dealsData || []);
-    }
-  }, [dealsData]);
+  const dealsData = useQuery(api.deals.getByPipeline, 
+    activePipeline ? { pipelineId: activePipeline } : "skip"
+  );
+  const deals = dealsData || [];
 
   // === MOVE DEAL MUTATION ===
-  const moveDealMutation = useMutation({
-    mutationFn: ({ dealId, stageId, confidence }: { dealId: string; stageId: string; confidence?: number }) => moveDealToStage(dealId, stageId, confidence),
-    onMutate: async ({ dealId, stageId }) => {
-      // Cancel outgoing queries to prevent overwriting optimistic update
-      await qc.cancelQueries({ queryKey: ['deals', activePipeline] });
-      
-      // Get current data for rollback
-      const previous = qc.getQueryData<Deal[]>(['deals', activePipeline]) || [];
-      
-      // Calculate new confidence based on stage
-      const nextStage = stages.find(s => s.id === stageId);
-      const confident = typeof nextStage?.default_probability === 'number' ? nextStage!.default_probability! : undefined;
-      
-      // Apply optimistic update immediately
-      const optimistic = previous.map(d => 
-        d.id === dealId 
-          ? { ...d, stage_id: stageId, confidence: confident ?? d.confidence } 
-          : d
-      );
-      
-      // Set optimistic data immediately (this makes it feel instant)
-      qc.setQueryData(['deals', activePipeline], optimistic);
-      
-      // Show success toast immediately for better UX
-      toast({ 
-        title: 'Deal verplaatst', 
-        description: `Deal succesvol verplaatst naar ${nextStage?.name}`, 
-        variant: 'default',
-        duration: 2000 
-      });
-      
-      return { previous };
-    },
-    onError: (error: any, _vars, context) => {
-      // Rollback optimistic update on error
-      if (context?.previous) {
-        qc.setQueryData(['deals', activePipeline], context.previous);
-      }
-      toast({ 
-        title: 'Verplaatsen mislukt', 
-        description: error?.message || 'Er ging iets mis. Probeer het opnieuw.', 
-        variant: 'destructive',
-        duration: 4000 
-      });
-    },
-    onSuccess: () => {
-      // Don't show another success toast since we already showed one optimistically
-    },
-    onSettled: () => {
-      // Sync with server data (but don't block UI)
-      qc.invalidateQueries({ queryKey: ['deals', activePipeline] });
-    },
-  });
+  const moveDealMutation = useMutation(api.deals.update);
 
   // === DRAG & DROP ===
   const onDragStart = () => {
     setIsDragging(true);
   };
 
-  const onDragEnd = (result: any) => {
+  const onDragEnd = async (result: any) => {
     setIsDragging(false);
-    
     const { destination, source, draggableId } = result;
 
     if (!destination) {
@@ -231,24 +111,41 @@ const Deals = () => {
       return;
     }
     
-    const nextStage = stages.find(s => s.id === destination.droppableId);
-    const nextConfidence = typeof nextStage?.default_probability === 'number' ? nextStage!.default_probability! : undefined;
-    moveDealMutation.mutate({ dealId: draggableId, stageId: destination.droppableId, confidence: nextConfidence });
+    const nextStage = stages.find(s => s._id === destination.droppableId);
+    const nextConfidence = typeof nextStage?.defaultProbability === 'number' ? nextStage!.defaultProbability! : undefined;
+    
+    try {
+      await moveDealMutation({
+        id: draggableId as Id<"deals">,
+        stageId: destination.droppableId as Id<"stages">,
+        confidence: nextConfidence
+      });
+      
+      toast({ 
+        title: 'Deal verplaatst', 
+        description: `Deal succesvol verplaatst naar ${nextStage?.name}`, 
+        variant: 'default',
+        duration: 2000 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: 'Verplaatsen mislukt', 
+        description: error?.message || 'Er ging iets mis. Probeer het opnieuw.', 
+        variant: 'destructive',
+        duration: 4000 
+      });
+    }
   };
 
   const handleCreateDeal = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleDealCreated = (pipelineId?: string) => {
-    if (pipelineId) {
-      if (pipelineId !== activePipeline) setActivePipeline(pipelineId);
-      qc.invalidateQueries({ queryKey: ['deals', pipelineId] });
-    } else if (activePipeline) {
-      qc.invalidateQueries({ queryKey: ['deals', activePipeline] });
-    } else {
-      qc.invalidateQueries({ queryKey: ['deals'] });
+  const handleDealCreated = (pipelineId?: Id<"pipelines">) => {
+    if (pipelineId && pipelineId !== activePipeline) {
+      setActivePipeline(pipelineId);
     }
+    // Convex handles real-time updates automatically
   };
 
   const searchLower = search.toLowerCase();
@@ -266,8 +163,8 @@ const Deals = () => {
     return stageColors[colorIndex];
   };
 
-  const getStageStats = (stageId: string) => {
-    const stageDeals = filteredDeals.filter(deal => deal.stage_id === stageId);
+  const getStageStats = (stageId: Id<"stages">) => {
+    const stageDeals = filteredDeals.filter(deal => deal.stageId === stageId);
     const totalValue = stageDeals.reduce((sum, deal) => sum + (deal.value || 0), 0);
     return { count: stageDeals.length, totalValue };
   };
@@ -299,8 +196,8 @@ const Deals = () => {
               Nieuwe Pipeline
             </Button>
             <Button onClick={handleCreateDeal} className="h-12 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg">
-            <Plus className="h-4 w-4 mr-2" />
-            Nieuwe Deal
+              <Plus className="h-4 w-4 mr-2" />
+              Nieuwe Deal
             </Button>
           </div>
         </div>
@@ -314,8 +211,8 @@ const Deals = () => {
               <SelectValue placeholder="Selecteer Pipeline" />
             </SelectTrigger>
             <SelectContent>
-              {pipelinesData?.map((pipeline: any) => (
-                <SelectItem key={pipeline.id} value={pipeline.id}>
+              {pipelines.map((pipeline: Pipeline) => (
+                <SelectItem key={pipeline._id} value={pipeline._id}>
                   {pipeline.name}
                 </SelectItem>
               ))}
@@ -358,11 +255,11 @@ const Deals = () => {
         <div className={`flex gap-6 overflow-x-auto pb-6 transition-all duration-300 ${isDragging ? 'cursor-grabbing' : ''}`}>
           {stages.map((stage, index) => {
             const stageStyle = getStageStyle(index);
-            const stats = getStageStats(stage.id);
+            const stats = getStageStats(stage._id);
             const IconComponent = stageStyle.icon;
 
             return (
-              <div key={stage.id} className={`min-w-[350px] flex-shrink-0 transition-all duration-300 ${isDragging ? 'scale-[0.98]' : ''}`}>
+              <div key={stage._id} className={`min-w-[350px] flex-shrink-0 transition-all duration-300 ${isDragging ? 'scale-[0.98]' : ''}`}>
                 {/* Stage Header */}
                 <div className={`glass-card p-4 mb-4 bg-gradient-to-br ${stageStyle.bg} border ${stageStyle.border} transition-all duration-300 ${isDragging ? 'shadow-lg ring-1 ring-white/10' : ''}`}>
                   <div className="flex items-center justify-between">
@@ -384,14 +281,14 @@ const Deals = () => {
                 </div>
 
                 {/* Deals Container */}
-                <Droppable droppableId={stage.id}>
+                <Droppable droppableId={stage._id}>
                   {(provided, snapshot) => (
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className={`min-h-[400px] space-y-3 p-4 rounded-xl transition-all duration-300 ease-out ${
+                      className={`min-h-[400px] space-y-3 p-4 rounded-xl transition-all duration-300 ease-out ${snapshot.isDraggingOver ? 'bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-dashed border-blue-500/30 shadow-lg scale-[1.02] transform' : 'bg-white/5 border border-white/10 hover:bg-white/10'} ${
                         snapshot.isDraggingOver 
-                          ? `bg-gradient-to-br ${stageStyle.bg} border-2 ${stageStyle.border} border-dashed shadow-lg scale-[1.02] transform animate-pulse` 
+                          ? `bg-gradient-to-br ${stageStyle.bg} border-2 ${stageStyle.border} border-dashed shadow-lg scale-[1.02] transform` 
                           : 'bg-white/5 border border-white/10 hover:bg-white/10'
                       }`}
                       style={{
@@ -403,16 +300,16 @@ const Deals = () => {
                       }}
                     >
                       {filteredDeals
-                        .filter((deal) => deal.stage_id === stage.id)
+                        .filter((deal) => deal.stageId === stage._id)
                         .map((deal, index) => (
-                          <Draggable key={deal.id} draggableId={deal.id} index={index}>
+                          <Draggable key={deal._id} draggableId={deal._id} index={index}>
                             {(provided, snapshot) => (
                               <Card
-                                onClick={() => !snapshot.isDragging && navigate(`/deals/${deal.id}`)}
+                                onClick={() => !snapshot.isDragging && navigate(`/deals/${deal._id}`)}
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`cursor-grab active:cursor-grabbing transition-all duration-300 ease-out glass-card border-white/20 hover:shadow-xl hover:scale-[1.02] hover:bg-white/10 ${
+                                className={`cursor-grab active:cursor-grabbing transition-all duration-300 ease-out glass-card border-white/20 hover:shadow-xl hover:scale-[1.02] hover:bg-white/10 ${snapshot.isDragging ? 'rotate-2 scale-110 shadow-2xl ring-2 ring-white/20 bg-white/20 z-50' : 'hover:rotate-0'} ${
                                   snapshot.isDragging 
                                     ? 'rotate-2 scale-110 shadow-2xl ring-2 ring-white/20 bg-white/20 z-50' 
                                     : 'hover:rotate-0'
@@ -482,11 +379,15 @@ const Deals = () => {
       <NewDealModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        pipelines={(pipelinesData as any[]) || []}
+        pipelines={pipelines}
         activePipeline={activePipeline}
         onCreated={handleDealCreated}
       />
-      <NewPipelineModal open={isPipelineModalOpen} onOpenChange={setIsPipelineModalOpen} onCreated={() => qc.invalidateQueries({ queryKey: ['pipelines'] })} />
+      <NewPipelineModal 
+        open={isPipelineModalOpen} 
+        onOpenChange={setIsPipelineModalOpen} 
+        onCreated={() => {/* Convex handles real-time updates */}} 
+      />
     </div>
   );
 };

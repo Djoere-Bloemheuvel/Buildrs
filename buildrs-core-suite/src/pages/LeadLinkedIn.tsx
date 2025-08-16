@@ -285,8 +285,10 @@ export default function LeadLinkedIn() {
   const stateLabelByValue = useMemo(() => { const m = new Map<string, string>(); for (const list of Object.values(statesByCountry)) for (const o of list) m.set(o.value, o.label); return m }, [])
   const stateOptionsFiltered: MultiOption[] = useMemo(() => { const set = new Map<string, MultiOption>(); for (const c of audCountry) for (const s of statesByCountry[c] || []) set.set(s.value, s); return Array.from(set.values()).sort((a, b) => a.label.localeCompare(b.label)) }, [audCountry])
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
+  const createCampaign = useMutation(api.campaigns.create)
+
+  const handleCreateCampaign = async () => {
+    try {
       if (!name.trim()) throw new Error('Naam is verplicht')
       if (!propositionId) throw new Error('Propositie is verplicht')
       if (!profile?.client_id) throw new Error('Client ID is vereist')
@@ -301,67 +303,65 @@ export default function LeadLinkedIn() {
       const hasAny = audFunctions.length > 0 || audIndustries.length > 0 || audSubindustries.length > 0 || audCountry.length > 0 || audState.length > 0 || company_size_min !== undefined || company_size_max !== undefined
       if (!hasAny) throw new Error('Audience filter is verplicht: vul minimaal één targetingveld in')
 
-      const payload = {
-        name: name.trim(),
-        description: description.trim() || null,
-        status: 'draft',
-        proposition_id: propositionId,
-        client_id: profile.client_id,
-        function_groups: audFunctions,
-        industries: audIndustries,
-        subindustries: audSubindustries,
-        countries: audCountry,
-        states: audState,
-        company_size_min,
-        company_size_max,
-        daily_connect_limit: dailyCount,
-        daily_message_limit: 100 // Default
-      }
-      
-      const { data, error } = await supabase
-        .from('li_campaigns')
-        .insert(payload)
-        .select('id')
-        .single()
-      
-      if (error) throw error
-      return data
-    },
-    onSuccess: (row) => {
       setProcessingOpen(true)
       const started = Date.now()
-      const total = 8000 // Shorter processing time for direct DB insert
+      const total = 8000
       const interval = window.setInterval(() => {
         const elapsed = Date.now() - started
         const pct = Math.max(5, Math.min(99, Math.round((elapsed / total) * 100)))
         setProcessingProgress(pct)
       }, 200)
       
-      const finish = async () => {
-        setProcessingProgress(100)
-        window.clearInterval(interval)
-        await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause for UX
-        
-        setProcessingOpen(false)
-        setOpenNew(false)
-        setName('')
-        setDescription('')
-        setAudFunctions([]); setAudIndustries([]); setAudSubindustries([]); setAudCountry([]); setAudState([]); setAudSizeMin(''); setAudSizeMax('')
-        setPropositionId(null)
-        
-        await campaignsQuery.refetch()
-        toast({ 
-          title: 'LinkedIn Campaign Created', 
-          description: 'Your campaign is ready to be configured and launched.' 
-        })
-        
-        if (row?.id) navigate(`/lead-engine/linkedin/${row.id}`)
+      const campaignData = {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        status: 'draft' as const,
+        type: 'linkedin' as const,
+        clientId: profile.client_id as any,
+        propositionId: propositionId as any,
+        targetingCriteria: {
+          functionGroups: audFunctions,
+          industries: audIndustries,
+          subindustries: audSubindustries,
+          countries: audCountry,
+          states: audState,
+          companySizeMin: company_size_min,
+          companySizeMax: company_size_max
+        },
+        settings: {
+          dailyConnectLimit: dailyCount,
+          dailyMessageLimit: 100
+        }
       }
       
-      window.setTimeout(finish, total)
-    },
-    onError: (e: any) => toast({ title: 'Mislukt', description: e?.message ?? 'Onbekende fout' }),
-  })
+      const campaignId = await createCampaign(campaignData)
+      
+      const finish = () => {
+        setProcessingProgress(100)
+        window.clearInterval(interval)
+        setTimeout(() => {
+          setProcessingOpen(false)
+          setOpenNew(false)
+          setName('')
+          setDescription('')
+          setAudFunctions([]); setAudIndustries([]); setAudSubindustries([]); setAudCountry([]); setAudState([]); setAudSizeMin(''); setAudSizeMax('')
+          setPropositionId(null)
+          
+          toast({ 
+            title: 'LinkedIn Campaign Created', 
+            description: 'Your campaign is ready to be configured and launched.' 
+          })
+          
+          if (campaignId) navigate(`/lead-engine/linkedin/${campaignId}`)
+        }, 500)
+      }
+      
+      setTimeout(finish, total)
+    } catch (error: any) {
+      setProcessingOpen(false)
+      toast({ title: 'Mislukt', description: error?.message ?? 'Onbekende fout' })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-page">
@@ -386,7 +386,7 @@ export default function LeadLinkedIn() {
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>{(campaignsQuery.data ?? []).filter(c => c.status === 'active').length} Active</span>
+                  <span>{(campaigns ?? []).filter(c => c.status === 'active').length} Active</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <UserPlus className="w-4 h-4 text-blue-500" />
@@ -467,11 +467,11 @@ export default function LeadLinkedIn() {
                 Annuleren
               </Button>
               <Button
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending || !name.trim() || !propositionId}
+                onClick={handleCreateCampaign}
+                disabled={processingOpen || !name.trim() || !propositionId}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white min-w-[180px]"
               >
-                {createMutation.isPending ? (
+                {processingOpen ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     Aanmaken...
@@ -604,13 +604,13 @@ export default function LeadLinkedIn() {
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="gap-2">
               <Activity className="w-3 h-3" />
-              {(campaignsQuery.data ?? []).length} Campaigns
+              {(campaigns ?? []).length} Campaigns
             </Badge>
           </div>
         </div>
 
         {/* Enhanced Campaign Cards */}
-        {campaignsQuery.isLoading ? (
+        {campaigns === undefined ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="apple-card animate-pulse">
@@ -618,12 +618,7 @@ export default function LeadLinkedIn() {
               </Card>
             ))}
           </div>
-        ) : campaignsQuery.error ? (
-          <div className="text-center py-12">
-            <div className="text-destructive font-medium">Error loading campaigns</div>
-            <p className="text-muted-foreground text-sm mt-1">Please try refreshing the page</p>
-          </div>
-        ) : (campaignsQuery.data ?? []).length === 0 ? (
+        ) : (campaigns ?? []).length === 0 ? (
           <div className="text-center py-16">
             <div className="p-4 bg-muted/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <Linkedin className="w-8 h-8 text-muted-foreground" />
@@ -637,7 +632,7 @@ export default function LeadLinkedIn() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {(campaignsQuery.data ?? []).map((campaign: any) => {
+            {(campaigns ?? []).map((campaign: any) => {
               const metrics = campaign.linkedin_metrics || {}
               const isActive = campaign.status === 'active'
               
