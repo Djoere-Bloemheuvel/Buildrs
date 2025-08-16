@@ -1389,7 +1389,7 @@ export default defineSchema({
     
     // Legacy settings (keeping for backward compatibility)
     dailyLimit: v.number(),
-    executionTime: v.string(), // "09:00" format
+    executionTime: v.optional(v.string()), // "09:00" format - now optional for simplified system
     
     // Execution tracking
     lastExecuted: v.optional(v.number()),
