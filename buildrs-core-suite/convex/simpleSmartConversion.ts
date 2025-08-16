@@ -341,7 +341,8 @@ export const createSimpleSmartConversion = mutation({
         message: `Smart Conversion automation "${args.name}" updated successfully`
       };
     } else {
-      // Create new automation using existing schema
+      // Create new automation using existing schema with ALL required fields
+      const now = Date.now();
       const automationId = await ctx.db.insert("clientAutomations", {
         clientId: clientId,
         // templateId is now optional for simplified system
@@ -350,9 +351,11 @@ export const createSimpleSmartConversion = mutation({
         isPaused: false,
         targetingCriteria: args.targetingCriteria,
         dailyLimit: args.dailyLimit || 10,
-        createdAt: Date.now(),
-        totalExecutions: 0,
-        totalLeadsConverted: 0
+        totalConverted: 0, // Required field
+        createdAt: now, // Required field
+        updatedAt: now, // Required field
+        totalExecutions: 0, // Optional but good to set
+        totalLeadsConverted: 0 // Optional but good to set
       });
 
       console.log(`✅ Created new Smart Conversion automation: ${args.name}`);
