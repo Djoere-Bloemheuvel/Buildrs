@@ -83,9 +83,9 @@ function getStatusColor(status: string) {
 export default function Contacts2Page() {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { user } = useConvexAuth();
-  // Mock profile data
-  const profile = { client_id: 'client-1' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const profile = { client_id: getClientId() };
 
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(25);

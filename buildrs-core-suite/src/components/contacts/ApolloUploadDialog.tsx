@@ -41,7 +41,8 @@ export default function ApolloUploadDialog() {
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const processApolloData = useAction(api.apolloProcessor.processApolloData);
-  const firstClient = useQuery(api.testQuery?.getFirstClient);
+  // Remove testQuery - not needed
+  const firstClient = null;
 
   const handleUpload = async () => {
     if (!jsonlUrl.trim()) {
@@ -58,15 +59,9 @@ export default function ApolloUploadDialog() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Get client ID dynamically from database
-      const clientId = firstClient?._id;
-      console.log('🔍 Client from query:', firstClient);
-      console.log('🆔 Using clientId:', clientId);
-      
-      if (!clientId) {
-        setError('No client found in database');
-        return;
-      }
+      // No client needed for leads/companies upload to global marketplace
+      const clientId = "global_marketplace";
+      console.log('🆔 Using clientId for global marketplace upload:', clientId);
       
       const result = await processApolloData({
         jsonlUrl: jsonlUrl.trim(),

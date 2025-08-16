@@ -609,6 +609,29 @@
   }
 }
 
+/* =================================================================
+   SIMPLE DRAG & DROP
+   ================================================================= */
+
+/* Basic smooth scrollbar */
+.kanban-board::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kanban-board::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* Responsive Design Helpers */
 @media (max-width: 640px) {
   .glass-card {
@@ -623,5 +646,10 @@
   .accent-gradient-btn {
     padding: 0.75rem 1.5rem;
     font-size: 0.875rem;
+  }
+  
+  /* Mobile drag optimizations */
+  .drag-item--dragging {
+    transform: scale(1.03) rotate(1deg);
   }
 }

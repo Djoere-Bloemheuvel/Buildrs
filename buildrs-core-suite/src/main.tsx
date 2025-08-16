@@ -26,7 +26,12 @@ if (!clerkPubKey) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <ClerkProvider 
+      publishableKey={clerkPubKey}
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
+      redirectUrl="/"
+    >
       <StripeProvider>
         <ConvexClientProvider>
           <QueryClientProvider client={queryClient}>

@@ -1353,7 +1353,7 @@ export default defineSchema({
 
   clientAutomations: defineTable({
     clientId: v.union(v.id("clients"), v.string()), // Accept both ID and string for backwards compatibility
-    templateId: v.id("automationTemplates"),
+    templateId: v.optional(v.id("automationTemplates")), // Optional for simplified Smart Conversion system
     
     // Client customization
     customName: v.optional(v.string()), // Override template name
@@ -1389,7 +1389,7 @@ export default defineSchema({
     
     // Legacy settings (keeping for backward compatibility)
     dailyLimit: v.number(),
-    executionTime: v.string(), // "09:00" format
+    executionTime: v.optional(v.string()), // "09:00" format - now optional for simplified system
     
     // Execution tracking
     lastExecuted: v.optional(v.number()),
@@ -1672,4 +1672,5 @@ export default defineSchema({
   }).index("by_breaker_id", ["breakerId"], { unique: true })
     .index("by_state", ["state"])
     .index("by_failure_count", ["failureCount"]),
+
 });

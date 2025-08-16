@@ -1,17 +1,37 @@
 
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, User, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeSelector } from '@/components/ThemeSelector';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, useUser, useClerk, UserProfile } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useConvexAuth } from '@/hooks/useConvexAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { useState } from 'react';
 
 interface HeaderProps {
   onSidebarOpen?: () => void;
 }
 
 export const Header = ({ onSidebarOpen }: HeaderProps) => {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const { getClientId, client } = useConvexAuth();
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   return (
     <header className="border-b border-border bg-card/50">
@@ -61,10 +81,78 @@ export const Header = ({ onSidebarOpen }: HeaderProps) => {
             </Link>
           </SignedOut>
           <SignedIn>
-            <UserButton />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="relative h-8 w-8 rounded-full"
+                >
+                  {user?.imageUrl ? (
+                    <img
+                      src={user.imageUrl}
+                      alt={user.firstName || 'User'}
+                      className="h-8 w-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {user?.fullName || user?.firstName || 'User'}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.primaryEmailAddress?.emailAddress}
+                    </p>
+                    <p className="text-xs leading-none text-orange-500 font-mono">
+                      Client: {getClientId() || 'geen client'}
+                    </p>
+                    {client && (
+                      <p className="text-xs leading-none text-blue-500">
+                        {client.name} ({client.domain})
+                      </p>
+                    )}
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowProfileModal(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Account Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SignedIn>
         </div>
       </div>
+      
+      {/* Account Settings Modal */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <UserProfile 
+            appearance={{
+              elements: {
+                rootBox: "w-full h-full",
+                card: "shadow-none border-0 bg-white",
+                navbar: "bg-white border-b",
+                navbarMobileMenuButton: "text-gray-600",
+                pageScrollBox: "bg-white",
+                page: "bg-white",
+                profileSectionPrimaryButton: "bg-blue-600 hover:bg-blue-700"
+              }
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 };

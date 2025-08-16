@@ -103,9 +103,25 @@ function getStatusColor(status: string) {
 
 export default function LeadDatabase() {
   const [search, setSearch] = useState<string>('');
-  const { user, getClientId } = useConvexAuth();
+  const { user, getClientId, isAuthenticated } = useConvexAuth();
+  
   // Use real client ID from authenticated user
-  const profile = { client_id: getClientId() };
+  const clientId = getClientId();
+  const profile = { client_id: clientId };
+  
+  // Helper function to get client identifier with fallback
+  const getClientIdentifier = () => {
+    return clientId || user?.email || "";
+  };
+  
+  // Debug logging
+  console.log('LeadDatabase auth state:', {
+    isAuthenticated,
+    user: !!user,
+    clientId,
+    userEmail: user?.email,
+    finalIdentifier: getClientIdentifier()
+  });
 
   // Filter states
   const [selectedFunctionGroups, setSelectedFunctionGroups] = useState<string[]>([]);
@@ -140,19 +156,14 @@ export default function LeadDatabase() {
   const [enableAutomation, setEnableAutomation] = useState<boolean>(false);
   const [automationName, setAutomationName] = useState<string>('');
   const [dailyLimit, setDailyLimit] = useState<number | ''>('');
-  const [automationTime, setAutomationTime] = useState<string>("09:00");
   const [activeTab, setActiveTab] = useState<string>("direct");
 
   // Backend mutations - using NEW EXACT system
   const convertLeadsToContacts = useMutation(api.exactLeadConversion.convertExactMatchLeads);
   const getTargetAudienceLeads = useMutation(api.exactLeadConversion.getExactMatchLeads);
   
-  // Automation mutations
-  const createClientAutomation = useMutation(api.automationsStringClient.createClientAutomationWithStringId);
-  const automationTemplates = useQuery(api.automations.getAutomationTemplates);
-  const clientAutomations = useQuery(api.automationsStringClient.getClientAutomationsWithStringId, {
-    clientIdentifier: profile?.client_id || "",
-  });
+  // Simple Bulk Convert mutation
+  const setBulkConvertSettings = useMutation(api.bulkConvert.setBulkConvertSettings);
 
   // Filter panel states
   const [functionGroupOpen, setFunctionGroupOpen] = useState(false);
@@ -299,7 +310,7 @@ export default function LeadDatabase() {
 
   const performConversion = async () => {
     if (selectedLeads.size === 0 || !profile?.client_id) {
-      toast.error('Geen leads geselecteerd of geen client ID beschikbaar');
+      toast.error('No leads selected or client unavailable');
       return;
     }
 
@@ -309,38 +320,38 @@ export default function LeadDatabase() {
       const leadIdsArray = Array.from(selectedLeads);
       const result = await convertLeadsToContacts({
         leadIds: leadIdsArray as any[], // Type assertion needed for Convex ID type
-        clientIdentifier: profile.client_id, // Using string identifier
+        clientIdentifier: getClientIdentifier(), // Using string identifier
       });
 
       if (result.success) {
         toast.success(
-          `🎉 ${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd!`,
+          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} successfully converted`,
           {
             style: {
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#1f2937',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
-            duration: 4000,
+            duration: 3000,
           }
         );
         
         if (result.skippedCount > 0) {
           toast(
-            `⚠️ ${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} overgeslagen`,
+            `${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} skipped`,
             {
               style: {
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                color: 'white',
-                fontWeight: '600',
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '0 10px 25px rgba(245, 158, 11, 0.3)',
-                backdropFilter: 'blur(10px)',
+                background: '#ffffff',
+                color: '#92400e',
+                fontWeight: '500',
+                fontSize: '14px',
+                borderRadius: '8px',
+                border: '1px solid #fde68a',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               },
               duration: 3000,
             }
@@ -348,16 +359,16 @@ export default function LeadDatabase() {
         }
       } else {
         toast.error(
-          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          'Conversion failed',
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -408,7 +419,7 @@ export default function LeadDatabase() {
   // Target audience matching using NEW EXACT system
   const searchTargetAudience = async () => {
     if (!profile?.client_id) {
-      toast.error('Geen client ID beschikbaar');
+      toast.error('Client unavailable');
       return;
     }
 
@@ -421,7 +432,7 @@ export default function LeadDatabase() {
         minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
         maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
         maxResults: 1000,
-        clientIdentifier: profile.client_id,
+        clientIdentifier: getClientIdentifier(),
       });
 
       // Map exact lead data to expected format
@@ -443,16 +454,16 @@ export default function LeadDatabase() {
       
       setMatchedLeads(mappedLeads);
       toast.success(
-        `🎯 ${result.totalMatches} EXACTE matches gevonden!`,
+        `${result.totalMatches} matches found`,
         {
           style: {
-            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            color: 'white',
-            fontWeight: '600',
-            borderRadius: '12px',
-            border: 'none',
-            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
-            backdropFilter: 'blur(10px)',
+            background: '#ffffff',
+            color: '#1f2937',
+            fontWeight: '500',
+            fontSize: '14px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           },
           duration: 3000,
         }
@@ -460,7 +471,7 @@ export default function LeadDatabase() {
     } catch (error) {
       console.error('Target audience search error:', error);
       toast.error(
-        `🚫 Fout bij zoeken: ${error.message}`,
+        `Search failed: ${error.message}`,
         {
           style: {
             background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -481,18 +492,7 @@ export default function LeadDatabase() {
 
   const convertSelectedAudience = async () => {
     if (activeTab === "automation") {
-      // Create automation for client
-      if (!automationTemplates || automationTemplates.length === 0) {
-        toast.error('Geen automation templates beschikbaar');
-        return;
-      }
-
-      // Use the basic template by default
-      const basicTemplate = automationTemplates.find(t => t.key === "lead-conversion-basic");
-      if (!basicTemplate) {
-        toast.error('Basic automation template niet gevonden');
-        return;
-      }
+      // Create Smart Conversion automation
 
       if (!automationName.trim()) {
         toast.error(
@@ -534,32 +534,47 @@ export default function LeadDatabase() {
 
       try {
         setIsConverting(true);
-        const automationId = await createClientAutomation({
-          clientIdentifier: profile.client_id,
-          templateId: basicTemplate._id,
-          customName: automationName.trim(),
-          targetFunctionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
-          targetIndustries: targetIndustries.length > 0 ? targetIndustries : undefined,
-          targetCountries: targetCountries.length > 0 ? targetCountries : undefined,
-          targetEmployeeMin: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
-          targetEmployeeMax: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
-          dailyLimit,
-          executionTime: automationTime,
+        // Debug logging
+        console.log('Creating Smart Conversion with:', {
+          name: automationName.trim(),
+          clientIdentifier: getClientIdentifier(),
+          user: user,
+          userEmail: user?.primaryEmailAddress?.emailAddress
+        });
+
+        // Ultra simple bulk convert setup
+        const clientIdentifier = getClientIdentifier();
+        
+        if (!clientIdentifier) {
+          throw new Error('Geen client ID of email gevonden. Probeer opnieuw in te loggen.');
+        }
+
+        await setBulkConvertSettings({
+          clientIdentifier: clientIdentifier,
+          dailyLimit: parseInt(dailyLimit),
+          isEnabled: true,
+          targetingCriteria: {
+            functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
+            industries: targetIndustries.length > 0 ? targetIndustries : undefined,
+            countries: targetCountries.length > 0 ? targetCountries : undefined,
+            minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
+            maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
+          }
         });
 
         toast.success(
-          `🤖 "${automationName}" ingesteld: ${dailyLimit} leads/dag om ${automationTime}`,
+          `Bulk conversion configured: ${dailyLimit} leads per day`,
           {
             style: {
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#1f2937',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
-            duration: 4000,
+            duration: 3000,
           }
         );
         setShowConversionModal(false);
@@ -572,21 +587,20 @@ export default function LeadDatabase() {
         setAudienceEmployeeMin(1);
         setAudienceEmployeeMax(1000);
         setDailyLimit('');
-        setAutomationTime("09:00");
         
       } catch (error) {
-        console.error('Error creating automation:', error);
+        console.error('Error creating Smart Conversion automation:', error);
         toast.error(
-          `⚙️ Fout bij aanmaken automatisering: ${error.message}`,
+          `Configuration failed: ${error.message}`,
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -608,7 +622,7 @@ export default function LeadDatabase() {
       const leadIds = leadsToConvert.map(lead => lead.leadId);
       const result = await convertLeadsToContacts({
         leadIds: leadIds as any[],
-        clientIdentifier: profile.client_id,
+        clientIdentifier: getClientIdentifier(),
       });
 
       if (result.success) {
@@ -631,16 +645,16 @@ export default function LeadDatabase() {
         setMatchedLeads([]);
       } else {
         toast.error(
-          '❌ Er zijn fouten opgetreden tijdens de conversie',
+          'Conversion failed',
           {
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: 'white',
-              fontWeight: '600',
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)',
-              backdropFilter: 'blur(10px)',
+              background: '#ffffff',
+              color: '#dc2626',
+              fontWeight: '500',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '1px solid #fecaca',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
             duration: 4000,
           }
@@ -1779,51 +1793,11 @@ Smart Conversie
                       </div>
                     </div>
                     
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-gray-700">Tijdstip</Label>
-                      <Input
-                        type="time"
-                        value={automationTime}
-                        onChange={(e) => setAutomationTime(e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded p-3 mt-3">
-                    <p className="text-xs text-gray-600">
-                      Elke dag om <strong>{automationTime}</strong> worden automatisch de beste <strong>{dailyLimit || '[aantal]'} leads</strong> geconverteerd naar contacten.
-                    </p>
-                  </div>
                 </div>
 
-                {/* Bestaande Automations */}
-                {clientAutomations && clientAutomations.length > 0 && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <h4 className="text-sm font-medium text-gray-900">Actieve Automatiseringen</h4>
-                    <div className="space-y-2">
-                      {clientAutomations.map((automation) => (
-                        <div key={automation._id} className="flex items-center justify-between bg-gray-50 rounded p-2">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {automation.displayName}
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              {automation.dailyLimit} leads om {automation.executionTime} • 
-                              {automation.totalConverted} geconverteerd
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${automation.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                            <span className="text-xs text-gray-500">
-                              {automation.isActive ? 'Actief' : 'Inactief'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Bulk Convert is nu ultra simpel - geen lijst van automations meer nodig */}
               </div>
             </TabsContent>
 

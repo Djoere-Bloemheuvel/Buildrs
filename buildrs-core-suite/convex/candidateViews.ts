@@ -54,6 +54,9 @@ export const abmCandidates = query({
 
         const company = await ctx.db.get(contact.companyId);
         if (!company || !company.companySize || company.companySize < (args.minCompanySize || 25)) return null;
+        
+        // Only include companies with full enrichment
+        if (!company.fullEnrichment) return null;
 
         // Get campaign and communication counts for this contact
         const campaignContacts = await ctx.db
@@ -221,6 +224,9 @@ export const coldEmailCandidates = query({
         // Get company info
         const company = await ctx.db.get(contact.companyId);
         if (!company) return null;
+        
+        // Only include companies with full enrichment
+        if (!company.fullEnrichment) return null;
 
         // Check for active campaigns (planned or active)
         const activeCampaignContacts = await ctx.db
@@ -390,6 +396,9 @@ export const linkedinCandidates = query({
 
         const company = await ctx.db.get(contact.companyId);
         if (!company) return null;
+        
+        // Only include companies with full enrichment
+        if (!company.fullEnrichment) return null;
 
         // Company size filter
         const minSize = args.minCompanySize || 5;

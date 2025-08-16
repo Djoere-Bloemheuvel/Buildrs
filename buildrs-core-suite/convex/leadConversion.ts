@@ -27,24 +27,42 @@ export const convertLeadsToContacts = mutation({
   handler: async (ctx, args) => {
     const { leadIds, clientIdentifier } = args;
 
-    // Find client by identifier (could be domain, email, or name)
-    let client = await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("domain"), clientIdentifier))
-      .first();
+    // Find client by identifier (could be _id, domain, email, or name)
+    let client = null;
     
+    // First try as direct Convex ID
+    try {
+      client = await ctx.db.get(clientIdentifier as any);
+      console.log(`✅ Found client by ID: ${client?.name} (${clientIdentifier})`);
+    } catch (error) {
+      console.log(`🔍 Client identifier ${clientIdentifier} is not a valid Convex ID, trying other fields...`);
+    }
+    
+    // If not found by ID, try by domain
+    if (!client) {
+      client = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), clientIdentifier))
+        .first();
+      if (client) console.log(`✅ Found client by domain: ${client.name}`);
+    }
+    
+    // If not found by domain, try by email
     if (!client) {
       client = await ctx.db
         .query("clients")
         .filter((q) => q.eq(q.field("email"), clientIdentifier))
         .first();
+      if (client) console.log(`✅ Found client by email: ${client.name}`);
     }
     
+    // If not found by email, try by name
     if (!client) {
       client = await ctx.db
         .query("clients")
         .filter((q) => q.eq(q.field("name"), clientIdentifier))
         .first();
+      if (client) console.log(`✅ Found client by name: ${client.name}`);
     }
 
     if (!client) {
@@ -88,6 +106,13 @@ export const convertLeadsToContacts = mutation({
         let companyData = null;
         if (lead.companyId) {
           companyData = await ctx.db.get(lead.companyId);
+        }
+
+        // Skip if company doesn't have full enrichment
+        if (!companyData?.fullEnrichment) {
+          results.errors.push(`Lead ${lead.email || leadId} skipped - company not fully enriched`);
+          results.skippedCount++;
+          continue;
         }
 
         // Create the contact relationship
@@ -165,24 +190,42 @@ export const getConversionPreview = mutation({
   handler: async (ctx, args) => {
     const { leadIds, clientIdentifier } = args;
 
-    // Find client by identifier (same logic as above)
-    let client = await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("domain"), clientIdentifier))
-      .first();
+    // Find client by identifier (could be _id, domain, email, or name)
+    let client = null;
     
+    // First try as direct Convex ID
+    try {
+      client = await ctx.db.get(clientIdentifier as any);
+      console.log(`✅ Found client by ID for preview: ${client?.name} (${clientIdentifier})`);
+    } catch (error) {
+      console.log(`🔍 Client identifier ${clientIdentifier} is not a valid Convex ID, trying other fields...`);
+    }
+    
+    // If not found by ID, try by domain
+    if (!client) {
+      client = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), clientIdentifier))
+        .first();
+      if (client) console.log(`✅ Found client by domain for preview: ${client.name}`);
+    }
+    
+    // If not found by domain, try by email
     if (!client) {
       client = await ctx.db
         .query("clients")
         .filter((q) => q.eq(q.field("email"), clientIdentifier))
         .first();
+      if (client) console.log(`✅ Found client by email for preview: ${client.name}`);
     }
     
+    // If not found by email, try by name
     if (!client) {
       client = await ctx.db
         .query("clients")
         .filter((q) => q.eq(q.field("name"), clientIdentifier))
         .first();
+      if (client) console.log(`✅ Found client by name for preview: ${client.name}`);
     }
 
     if (!client) {
@@ -279,17 +322,33 @@ export const getTargetAudienceLeads = mutation({
       clientIdentifier 
     } = args;
 
-    // Find client
-    let client = await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("domain"), clientIdentifier))
-      .first();
+    // Find client by identifier (could be _id, domain, email, or name)
+    let client = null;
     
+    // First try as direct Convex ID
+    try {
+      client = await ctx.db.get(clientIdentifier as any);
+      console.log(`✅ Found client by ID for target audience: ${client?.name} (${clientIdentifier})`);
+    } catch (error) {
+      console.log(`🔍 Client identifier ${clientIdentifier} is not a valid Convex ID, trying other fields...`);
+    }
+    
+    // If not found by ID, try by domain
+    if (!client) {
+      client = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), clientIdentifier))
+        .first();
+      if (client) console.log(`✅ Found client by domain for target audience: ${client.name}`);
+    }
+    
+    // If not found by domain, try by email
     if (!client) {
       client = await ctx.db
         .query("clients")
         .filter((q) => q.eq(q.field("email"), clientIdentifier))
         .first();
+      if (client) console.log(`✅ Found client by email for target audience: ${client.name}`);
     }
     
     if (!client) {
@@ -333,6 +392,11 @@ export const getTargetAudienceLeads = mutation({
       let companyData = null;
       if (lead.companyId) {
         companyData = await ctx.db.get(lead.companyId);
+      }
+
+      // Skip leads without fully enriched companies
+      if (!companyData?.fullEnrichment) {
+        continue;
       }
 
       // Industry matching (medium weight)

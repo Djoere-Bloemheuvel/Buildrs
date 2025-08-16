@@ -3,19 +3,19 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Main automation scheduler - runs every hour
+// Main automation scheduler - runs every minute (FOR TESTING)
 crons.interval(
   "automation-scheduler",
-  { minutes: 60 }, // Check every hour
+  { minutes: 1 }, // Check every minute for testing
   internal.automationSchedulerInternal.checkAndExecuteAutomations
 );
 
-// Peak hours scheduler - runs every hour from 6 AM to 12 PM for more frequent execution
-crons.cron(
-  "automation-scheduler-peak",
-  "0 6-12 * * *", // Every hour from 6 AM to 12 PM
-  internal.automationSchedulerInternal.checkAndExecuteAutomations
-);
+// Peak hours scheduler - disabled during testing to avoid conflicts
+// crons.cron(
+//   "automation-scheduler-peak",
+//   "0 6-12 * * *", // Every hour from 6 AM to 12 PM
+//   internal.automationSchedulerInternal.checkAndExecuteAutomations
+// );
 
 // Daily health metrics generation - runs at 1 AM every day
 crons.cron(

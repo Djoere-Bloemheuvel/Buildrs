@@ -22,6 +22,7 @@ export const list = query({
     clientId: v.id("clients"),
     pipelineId: v.id("pipelines"),
     stageId: v.id("stages"),
+    propositionId: v.optional(v.id("propositions")),
     ownerId: v.optional(v.id("profiles")),
     title: v.string(),
     description: v.optional(v.string()),
@@ -32,6 +33,8 @@ export const list = query({
     priority: v.optional(v.number()),
     source: v.optional(v.string()),
     closedAt: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
+    isAutoCreated: v.optional(v.boolean()),
   })),
   handler: async (ctx, args) => {
     let deals = ctx.db.query("deals");
@@ -168,6 +171,61 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
     return null;
+  },
+});
+
+// Get deals by pipeline with enriched data
+export const getByPipeline = query({
+  args: { pipelineId: v.id("pipelines") },
+  returns: v.array(v.object({
+    _id: v.id("deals"),
+    _creationTime: v.number(),
+    contactId: v.optional(v.id("contacts")),
+    companyId: v.optional(v.id("companies")),
+    campaignId: v.optional(v.id("campaigns")),
+    clientId: v.id("clients"),
+    pipelineId: v.id("pipelines"),
+    stageId: v.id("stages"),
+    ownerId: v.optional(v.id("profiles")),
+    propositionId: v.optional(v.id("propositions")),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.string(),
+    value: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    confidence: v.optional(v.number()),
+    closedAt: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
+    isAutoCreated: v.optional(v.boolean()),
+    priority: v.optional(v.number()),
+    companies: v.optional(v.object({
+      name: v.string(),
+    })),
+  })),
+  handler: async (ctx, args) => {
+    const deals = await ctx.db
+      .query("deals")
+      .withIndex("by_pipeline", (q) => q.eq("pipelineId", args.pipelineId))
+      .collect();
+    
+    // Enrich with company data
+    const enrichedDeals = [];
+    for (const deal of deals) {
+      let companies = undefined;
+      if (deal.companyId) {
+        const company = await ctx.db.get(deal.companyId);
+        if (company) {
+          companies = { name: company.name };
+        }
+      }
+      
+      enrichedDeals.push({
+        ...deal,
+        companies,
+      });
+    }
+    
+    return enrichedDeals;
   },
 });
 

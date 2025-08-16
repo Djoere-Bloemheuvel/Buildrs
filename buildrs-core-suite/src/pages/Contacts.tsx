@@ -257,9 +257,17 @@ export default function ContactsPage() {
           <h2 className="text-xl font-semibold">Loading Contacts...</h2>
           <p className="text-muted-foreground mt-2">Please wait while we fetch your contacts.</p>
         </div>
-            </div>
+      </div>
     );
   }
+
+  // Add debug logging
+  console.log('Contacts page debug:', { 
+    contactsData, 
+    isLoading, 
+    clientId: profile?.client_id,
+    contacts: contacts?.length 
+  });
 
 
   return (

@@ -168,7 +168,7 @@ export const getExactFilteredLeads = query({
 
       // EXACT Employee count matching
       if ((minEmployeeCount || maxEmployeeCount) && isExactMatch) {
-        const employeeCount = companyData?.employeeCount;
+        const employeeCount = companyData?.companySize;
         if (!employeeCount) {
           isExactMatch = false;
         } else {
@@ -177,6 +177,13 @@ export const getExactFilteredLeads = query({
           if (employeeCount < min || employeeCount > max) {
             isExactMatch = false;
           }
+        }
+      }
+
+      // EXACT Full Enrichment requirement - only show leads with fully enriched companies
+      if (isExactMatch) {
+        if (!companyData?.fullEnrichment) {
+          isExactMatch = false;
         }
       }
 
@@ -199,7 +206,7 @@ export const getExactFilteredLeads = query({
       // Only include leads with EXACT match on ALL criteria
       if (isExactMatch) {
         // DEBUG: Log employee count data for each match
-        console.log(`👥 Backend Debug for ${lead.firstName} at ${companyData?.name}: companyEmpCount=${companyData?.employeeCount}, leadEmpCount=${lead.employeeCount}, final=${companyData?.employeeCount || lead.employeeCount}`);
+        console.log(`👥 Backend Debug for ${lead.firstName} at ${companyData?.name}: companySize=${companyData?.companySize}, leadEmpCount=${lead.employeeCount}, final=${companyData?.companySize || lead.employeeCount}`);
         
         exactMatches.push({
           _id: lead._id,
@@ -220,14 +227,14 @@ export const getExactFilteredLeads = query({
           companyLinkedinUrl: companyData?.companyLinkedinUrl,
           industry: companyData?.industryLabel,
           subindustryLabel: companyData?.subindustryLabel,
-          employeeCount: companyData?.employeeCount || lead.employeeCount,
-          companySize: companyData?.employeeCount || lead.employeeCount, // duplicate for compatibility
+          employeeCount: companyData?.companySize || lead.employeeCount,
+          companySize: companyData?.companySize || lead.employeeCount, // duplicate for compatibility
           
           // DEBUG: Log employee count data
           debugEmployeeData: {
-            companyEmployeeCount: companyData?.employeeCount,
+            companyEmployeeCount: companyData?.companySize,
             leadEmployeeCount: lead.employeeCount,
-            finalEmployeeCount: companyData?.employeeCount || lead.employeeCount,
+            finalEmployeeCount: companyData?.companySize || lead.employeeCount,
             companyName: companyData?.name,
             leadFirstName: lead.firstName,
             hasCompanyData: !!companyData,
@@ -321,7 +328,7 @@ export const getExactFilterOptions = query({
 
       if (lead.companyId) {
         const company = await ctx.db.get(lead.companyId);
-        if (company?.industryLabel) {
+        if (company?.industryLabel && company?.fullEnrichment) {
           industries.add(company.industryLabel);
         }
       }

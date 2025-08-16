@@ -3,6 +3,21 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// ===============================
+// BULK CONVERT AUTOMATION
+// ===============================
+
+// Ultra simple bulk convert - runs once per day
+crons.daily(
+  "bulk-convert-automation",
+  { hourUTC: 5, minuteUTC: 0 }, // Run daily at 5:00 AM UTC (7:00 AM CET)
+  internal.bulkConvert.runBulkConvert
+);
+
+// ===============================
+// DATA ENRICHMENT
+// ===============================
+
 // Daily fallback cronjob to enrich leads without function groups
 // Runs every day at 02:00 AM (when N8N traffic is low)
 crons.daily(
@@ -12,6 +27,17 @@ crons.daily(
     minuteUTC: 0,
   },
   internal.apolloProcessor.dailyFunctionGroupEnrichment
+);
+
+// Daily fallback cronjob to enrich companies without companySummary
+// Runs every day at 03:00 AM (after function group enrichment)
+crons.daily(
+  "daily company summary enrichment",
+  {
+    hourUTC: 3, // 3 AM UTC
+    minuteUTC: 0,
+  },
+  internal.apolloProcessor.dailyCompanySummaryEnrichment
 );
 
 export default crons;

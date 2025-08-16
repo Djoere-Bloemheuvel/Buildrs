@@ -113,9 +113,19 @@
   color: white !important;
 }
 
-/* Hide any remaining white backgrounds */
-[class*="cl-"] {
-  background-color: transparent !important;
+/* Clean UserProfile styling when embedded in our dialog */
+.cl-userProfile .cl-rootBox {
+  background: white !important;
+  box-shadow: none !important;
+  border: none !important;
+  height: 100% !important;
+}
+
+.cl-userProfile .cl-card {
+  background: white !important;
+  box-shadow: none !important;
+  border: none !important;
+  height: 100% !important;
 }
 
 /* Force dark scrollbars if any */
@@ -126,13 +136,20 @@
 
 /* User Button and Dropdown Overrides */
 .cl-userButtonPopoverCard,
-.cl-popoverCard {
+.cl-popoverCard,
+.cl-modalBackdrop,
+.cl-modal,
+.cl-userProfileModal,
+.cl-organizationProfileModal,
+.cl-card {
   background: white !important;
   backdrop-filter: none !important;
   opacity: 1 !important;
   box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
   border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
+
+/* Clean modal styling for embedded UserProfile */
 
 /* Hide Clerk Branding */
 .cl-userButtonPopoverFooter,
@@ -142,7 +159,8 @@
 .cl-footerText,
 .cl-brandingText,
 .cl-poweredBy,
-.cl-securedBy {
+.cl-securedBy,
+.cl-footer {
   display: none !important;
 }
 
@@ -150,8 +168,41 @@
 .cl-userButtonPopoverCard .cl-userButtonPopoverFooter,
 .cl-userButtonPopoverCard footer,
 .cl-userButtonPopoverCard [class*="footer"],
-.cl-userButtonPopoverCard .cl-internal-* {
+.cl-userButtonPopoverCard .cl-internal-*,
+.cl-modal footer,
+.cl-modal [class*="footer"],
+.cl-userProfileModal footer,
+.cl-userProfileModal [class*="footer"] {
   display: none !important;
+}
+
+/* Add Buildrs branding */
+.cl-userButtonPopoverCard::after,
+.cl-modal::after,
+.cl-userProfileModal::after {
+  content: "Powered by Buildrs";
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  padding: 12px 16px 8px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: auto;
+  background: white;
+}
+
+/* Style Buildrs branding in modal */
+.cl-modal .cl-card::after,
+.cl-userProfileModal .cl-card::after {
+  content: "Powered by Buildrs";
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  padding: 12px 16px 8px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 16px;
+  background: white;
 }
 
 /* Hide development mode banner */
@@ -200,6 +251,17 @@ div[class*="cl-"]:contains("Development mode") {
   display: none !important;
 }
 
+/* Additional Clerk branding selectors */
+.cl-internal-1tcakzb,
+.cl-internal-1xe8z38,
+[class*="cl-internal-"],
+[data-localization-key*="footer"],
+[data-localization-key*="brand"],
+[data-localization-key*="powered"],
+[data-localization-key*="secured"] {
+  display: none !important;
+}
+
 /* Override any remaining transparent backgrounds in user menu */
 .cl-userButtonPopoverCard * {
   background-color: inherit !important;
@@ -207,4 +269,50 @@ div[class*="cl-"]:contains("Development mode") {
 
 .cl-userButtonPopoverCard {
   background-color: white !important;
+}
+
+/* Modal positioning and styling */
+.cl-modal {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  max-height: 90vh !important;
+  max-width: 90vw !important;
+  width: auto !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* User Profile Modal specific styling */
+.cl-userProfileModal {
+  min-width: 500px !important;
+}
+
+@media (max-width: 640px) {
+  .cl-userProfileModal {
+    min-width: 350px !important;
+    max-width: 95vw !important;
+  }
+}
+
+/* Ensure modal content is properly contained */
+.cl-modal .cl-card,
+.cl-userProfileModal .cl-card {
+  border-radius: 12px !important;
+  overflow: auto !important;
+  max-height: 85vh !important;
+}
+
+/* Remove any default margins from modal content */
+.cl-modal .cl-main,
+.cl-userProfileModal .cl-main {
+  margin: 0 !important;
+  padding: 24px !important;
+}
+
+/* Ensure UserProfile content is readable in our modal */
+.cl-userProfile .cl-profileSection,
+.cl-userProfile .cl-profileSectionContent {
+  background: white !important;
 }
