@@ -276,13 +276,20 @@ export const createSimpleSmartConversion = mutation({
     dailyLimit: v.optional(v.number())
   },
   handler: async (ctx, args) => {
+    console.log(`🚀 Creating Smart Conversion for identifier: "${args.clientIdentifier}"`);
+    
+    // Validate input
+    if (!args.clientIdentifier || args.clientIdentifier.trim() === '') {
+      throw new Error(`Client identifier is empty or invalid. Received: "${args.clientIdentifier}"`);
+    }
+    
     // Find client by identifier  
     let client = null;
     try {
       client = await ctx.db.get(args.clientIdentifier as any);
       console.log(`✅ Found client by ID: ${client?.name} (${args.clientIdentifier})`);
     } catch (error) {
-      console.log(`🔍 Client identifier ${args.clientIdentifier} is not a valid Convex ID, trying other fields...`);
+      console.log(`🔍 Client identifier "${args.clientIdentifier}" is not a valid Convex ID, trying other fields...`);
     }
     
     if (!client) {
@@ -294,7 +301,16 @@ export const createSimpleSmartConversion = mutation({
     }
     
     if (!client) {
-      throw new Error(`Client with identifier ${args.clientIdentifier} does not exist`);
+      // Try by email as fallback
+      client = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("email"), args.clientIdentifier))
+        .first();
+      if (client) console.log(`✅ Found client by email: ${client.name}`);
+    }
+    
+    if (!client) {
+      throw new Error(`Client with identifier "${args.clientIdentifier}" does not exist. Please check if you're logged in correctly.`);
     }
 
     const clientId = client._id;
@@ -328,7 +344,7 @@ export const createSimpleSmartConversion = mutation({
       // Create new automation using existing schema
       const automationId = await ctx.db.insert("clientAutomations", {
         clientId: clientId,
-        templateId: "smart-conversion" as any, // Placeholder template ID
+        // templateId is now optional for simplified system
         customName: args.name,
         isActive: true,
         isPaused: false,

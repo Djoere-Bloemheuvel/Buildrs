@@ -140,7 +140,6 @@ export default function LeadDatabase() {
   const [enableAutomation, setEnableAutomation] = useState<boolean>(false);
   const [automationName, setAutomationName] = useState<string>('');
   const [dailyLimit, setDailyLimit] = useState<number | ''>('');
-  const [automationTime, setAutomationTime] = useState<string>("09:00");
   const [activeTab, setActiveTab] = useState<string>("direct");
 
   // Backend mutations - using NEW EXACT system
@@ -522,6 +521,18 @@ export default function LeadDatabase() {
 
       try {
         setIsConverting(true);
+        // Debug logging
+        console.log('Creating Smart Conversion with:', {
+          name: automationName.trim(),
+          clientIdentifier: profile.client_id,
+          user: user,
+          userEmail: user?.primaryEmailAddress?.emailAddress
+        });
+
+        if (!profile.client_id) {
+          throw new Error('Geen client ID gevonden. Probeer opnieuw in te loggen.');
+        }
+
         const result = await createSmartConversionAutomation({
           name: automationName.trim(),
           clientIdentifier: profile.client_id,
@@ -1766,20 +1777,11 @@ Smart Conversie
                       </div>
                     </div>
                     
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-gray-700">Tijdstip</Label>
-                      <Input
-                        type="time"
-                        value={automationTime}
-                        onChange={(e) => setAutomationTime(e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded p-3 mt-3">
-                    <p className="text-xs text-gray-600">
-                      Elke dag om <strong>{automationTime}</strong> worden automatisch de beste <strong>{dailyLimit || '[aantal]'} leads</strong> geconverteerd naar contacten.
+                  <div className="bg-blue-50 rounded p-3 mt-3">
+                    <p className="text-xs text-blue-700">
+                      🤖 Het systeem draait automatisch <strong>elke 6 uur</strong> en converteert de beste <strong>{dailyLimit || '[aantal]'} leads</strong> per dag naar contacten.
                     </p>
                   </div>
                 </div>

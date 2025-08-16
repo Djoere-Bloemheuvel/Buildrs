@@ -1353,7 +1353,7 @@ export default defineSchema({
 
   clientAutomations: defineTable({
     clientId: v.union(v.id("clients"), v.string()), // Accept both ID and string for backwards compatibility
-    templateId: v.id("automationTemplates"),
+    templateId: v.optional(v.id("automationTemplates")), // Optional for simplified Smart Conversion system
     
     // Client customization
     customName: v.optional(v.string()), // Override template name
