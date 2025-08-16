@@ -50,7 +50,7 @@ interface FlyoutProps {
 const getSubmenuIcon = (name: string) => {
   const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     'Database': Database,
-    'ABM': Target,
+    'Account Based Marketing': Target,
     'LinkedIn': Linkedin,
     'E-mail': Mail,
     'Deals': HandCoins,

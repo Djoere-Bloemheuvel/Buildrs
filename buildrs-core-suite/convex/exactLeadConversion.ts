@@ -155,6 +155,13 @@ export const getExactMatchLeads = mutation({
         }
       }
 
+      // EXACT Full Enrichment requirement - only process leads with fully enriched companies
+      if (isExactMatch) {
+        if (!companyData?.fullEnrichment) {
+          isExactMatch = false;
+        }
+      }
+
       // Only include leads with EXACT match on ALL criteria
       if (isExactMatch) {
         exactMatches.push({
@@ -297,6 +304,13 @@ export const convertExactMatchLeads = mutation({
         let companyData = null;
         if (lead.companyId) {
           companyData = await ctx.db.get(lead.companyId);
+        }
+
+        // Skip if company doesn't have full enrichment
+        if (!companyData?.fullEnrichment) {
+          results.errors.push(`Lead ${lead.email || leadId} skipped - company not fully enriched`);
+          results.skippedCount++;
+          continue;
         }
 
         // Create the contact relationship

@@ -108,6 +108,13 @@ export const convertLeadsToContacts = mutation({
           companyData = await ctx.db.get(lead.companyId);
         }
 
+        // Skip if company doesn't have full enrichment
+        if (!companyData?.fullEnrichment) {
+          results.errors.push(`Lead ${lead.email || leadId} skipped - company not fully enriched`);
+          results.skippedCount++;
+          continue;
+        }
+
         // Create the contact relationship
         const contactId = await ctx.db.insert("contacts", {
           leadId: leadId,
@@ -385,6 +392,11 @@ export const getTargetAudienceLeads = mutation({
       let companyData = null;
       if (lead.companyId) {
         companyData = await ctx.db.get(lead.companyId);
+      }
+
+      // Skip leads without fully enriched companies
+      if (!companyData?.fullEnrichment) {
+        continue;
       }
 
       // Industry matching (medium weight)

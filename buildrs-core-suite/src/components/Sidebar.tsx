@@ -4,10 +4,10 @@ import {
   Brain,
   Zap,
   CircleDollarSign,
-  Globe2,
-  LayoutDashboard,
   BarChart3,
-  Settings
+  Settings,
+  Database,
+  Rocket
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SidebarFlyout } from './SidebarFlyout';
@@ -23,16 +23,21 @@ const navigation = [
   {
     name: 'Action Center',
     href: '/',
-    icon: Brain,
+    icon: Rocket,
     color: 'primary'
+  },
+  {
+    name: 'Database',
+    href: '/lead-engine/database',
+    icon: Database,
+    color: 'emerald'
   },
   {
     name: 'Lead Engine',
     icon: Zap,
     color: 'blue',
     children: [
-      { name: 'Database', href: '/lead-engine/database' },
-      { name: 'ABM', href: '/lead-engine/abm' },
+      { name: 'Account Based Marketing', href: '/lead-engine/abm' },
       { name: 'LinkedIn', href: '/lead-engine/linkedin' },
       { name: 'E-mail', href: '/lead-engine/email' },
     ]
@@ -50,27 +55,14 @@ const navigation = [
     ]
   },
   {
-    name: 'Marketing Engine',
-    icon: Globe2,
+    name: 'Automations',
+    icon: Brain,
     color: 'purple',
     children: [
-      { name: 'Campagnes', href: '/marketing/campaigns' },
-      { name: 'Content', href: '/marketing/content' },
-      { name: 'Social Media', href: '/marketing/social' },
-      { name: 'SEO', href: '/marketing/seo' }
-    ]
-  },
-  {
-    name: 'Project Engine',
-    icon: LayoutDashboard,
-    color: 'orange',
-    children: [
-      { name: 'Dashboard', href: '/ops' },
-      { name: 'Inbox', href: '/ops/inbox', badge: 'Nieuw' },
-      { name: 'Projecten', href: '/ops/projects' },
-      { name: 'Taken', href: '/ops/tasks' },
-      { name: 'Kalender', href: '/ops/calendar' },
-      { name: 'Sessies', href: '/ops/sessions' }
+      { name: 'Workflows', href: '/automations/workflows' },
+      { name: 'Triggers', href: '/automations/triggers' },
+      { name: 'Templates', href: '/automations/templates' },
+      { name: 'Monitoring', href: '/automations/monitoring' }
     ]
   },
   {

@@ -180,6 +180,13 @@ export const getExactFilteredLeads = query({
         }
       }
 
+      // EXACT Full Enrichment requirement - only show leads with fully enriched companies
+      if (isExactMatch) {
+        if (!companyData?.fullEnrichment) {
+          isExactMatch = false;
+        }
+      }
+
       // Search term matching (if provided)
       if (searchTerm && isExactMatch) {
         const searchLower = searchTerm.toLowerCase();
@@ -321,7 +328,7 @@ export const getExactFilterOptions = query({
 
       if (lead.companyId) {
         const company = await ctx.db.get(lead.companyId);
-        if (company?.industryLabel) {
+        if (company?.industryLabel && company?.fullEnrichment) {
           industries.add(company.industryLabel);
         }
       }
