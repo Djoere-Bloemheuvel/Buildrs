@@ -96,8 +96,13 @@ export default function LeadDatabase() {
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedSubindustries, setSelectedSubindustries] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [employeeCount, setEmployeeCount] = useState<number>(1000);
-  const [employeeTextInput, setEmployeeTextInput] = useState<string>('');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [employeeCountMin, setEmployeeCountMin] = useState<number>(1);
+  const [employeeCountMax, setEmployeeCountMax] = useState<number>(1000);
+  const [employeeMinTextInput, setEmployeeMinTextInput] = useState<string>('');
+  const [employeeMaxTextInput, setEmployeeMaxTextInput] = useState<string>('');
 
   // Filter panel states
   const [functionGroupOpen, setFunctionGroupOpen] = useState(false);
@@ -114,7 +119,8 @@ export default function LeadDatabase() {
   const filterOptionsLoading = filterOptions === undefined;
 
   // Get leads data from Convex
-  const targetEmployeeCount = employeeTextInput ? parseInt(employeeTextInput) : employeeCount;
+  const targetEmployeeMin = employeeMinTextInput ? parseInt(employeeMinTextInput) : employeeCountMin;
+  const targetEmployeeMax = employeeMaxTextInput ? parseInt(employeeMaxTextInput) : employeeCountMax;
   const data = useQuery(api.leadDatabase.getEnrichedContacts, {
     search: search || undefined,
     page,
@@ -123,7 +129,11 @@ export default function LeadDatabase() {
     industries: selectedIndustries.length > 0 ? selectedIndustries : undefined,
     subindustries: selectedSubindustries.length > 0 ? selectedSubindustries : undefined,
     locations: selectedLocations.length > 0 ? selectedLocations : undefined,
-    maxEmployeeCount: targetEmployeeCount && targetEmployeeCount < 1000 ? targetEmployeeCount : undefined,
+    countries: selectedCountries.length > 0 ? selectedCountries : undefined,
+    provinces: selectedProvinces.length > 0 ? selectedProvinces : undefined,
+    cities: selectedCities.length > 0 ? selectedCities : undefined,
+    minEmployeeCount: targetEmployeeMin > 1 ? targetEmployeeMin : undefined,
+    maxEmployeeCount: targetEmployeeMax ? targetEmployeeMax : undefined,
   });
 
   const isLoading = data === undefined;
@@ -138,8 +148,13 @@ export default function LeadDatabase() {
     setSelectedIndustries([]);
     setSelectedSubindustries([]);
     setSelectedLocations([]);
-    setEmployeeCount(1000);
-    setEmployeeTextInput('');
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setEmployeeCountMin(1);
+    setEmployeeCountMax(1000);
+    setEmployeeMinTextInput('');
+    setEmployeeMaxTextInput('');
     setPage(1);
   };
 
@@ -281,9 +296,9 @@ export default function LeadDatabase() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-[calc(100vh-60px)] bg-gray-50 -m-6">
       {/* Left Sidebar - New Design from Screenshot */}
-      <div className="w-80 bg-white flex flex-col">
+      <div className="w-80 bg-white flex flex-col border-r-2 border-gray-200">
         {/* Header */}
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-2">
@@ -305,9 +320,9 @@ export default function LeadDatabase() {
         </div>
 
         {/* Filters Content */}
-        <div className="flex-1 px-6 space-y-4 overflow-auto">
+        <div className="flex-1 px-6 space-y-1 overflow-auto">
           {/* Opgeslagen Filters */}
-          <div className="w-full">
+          <div className="w-full pb-4 border-b-2 border-gray-200">
             <Button 
               variant="outline" 
               className="w-full justify-between h-12 px-4 text-left font-normal"
@@ -320,13 +335,13 @@ export default function LeadDatabase() {
           </div>
 
           {/* Function Groups */}
-          <div className="w-full">
+          <div className="w-full py-4 border-b-2 border-gray-200">
             <Button 
               variant="ghost" 
               className="w-full justify-between h-12 px-0 text-left font-normal hover:bg-transparent"
               onClick={() => setFunctionGroupOpen(!functionGroupOpen)}
             >
-              <span className="text-base font-medium text-gray-900">Function Groups</span>
+              <span className="text-base font-medium text-gray-900">Functie</span>
               <ChevronRightIcon className="w-5 h-5 text-gray-400" />
             </Button>
             {functionGroupOpen && (
@@ -346,7 +361,7 @@ export default function LeadDatabase() {
           </div>
 
           {/* Aantal medewerkers */}
-          <div className="w-full">
+          <div className="w-full py-4 border-b-2 border-gray-200">
             <Button 
               variant="ghost" 
               className="w-full justify-between h-12 px-0 text-left font-normal hover:bg-transparent"
@@ -358,12 +373,16 @@ export default function LeadDatabase() {
             {employeesOpen && (
               <div className="mt-2 space-y-4 pl-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Max aantal medewerkers: {employeeTextInput || employeeCount}</Label>
+                  <Label className="text-sm font-medium">
+                    Aantal medewerkers: {employeeMinTextInput || employeeCountMin} - {employeeMaxTextInput || employeeCountMax}
+                  </Label>
                   <Slider
-                    value={[employeeCount]}
+                    value={[employeeCountMin, employeeCountMax]}
                     onValueChange={(values) => {
-                      setEmployeeCount(values[0]);
-                      setEmployeeTextInput(''); // Clear text input when using slider
+                      setEmployeeCountMin(values[0]);
+                      setEmployeeCountMax(values[1]);
+                      setEmployeeMinTextInput(''); // Clear text inputs when using slider
+                      setEmployeeMaxTextInput('');
                       setPage(1);
                     }}
                     min={1}
@@ -378,26 +397,52 @@ export default function LeadDatabase() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="employee-text-input" className="text-sm font-medium">Of voer exact aantal in:</Label>
-                  <Input
-                    id="employee-text-input"
-                    type="number"
-                    min="1"
-                    placeholder="Bijv. 250"
-                    value={employeeTextInput}
-                    onChange={(e) => {
-                      setEmployeeTextInput(e.target.value);
-                      setPage(1);
-                    }}
-                    className="w-full"
-                  />
+                  <Label className="text-sm font-medium">Of voer bereik handmatig in:</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Van (bijv. 10)"
+                      value={employeeMinTextInput}
+                      onChange={(e) => {
+                        setEmployeeMinTextInput(e.target.value);
+                        // Update slider if value is within range
+                        const value = parseInt(e.target.value);
+                        if (!isNaN(value) && value >= 1 && value <= 1000) {
+                          setEmployeeCountMin(value);
+                        }
+                        setPage(1);
+                      }}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500">tot</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Tot (bijv. 500)"
+                      value={employeeMaxTextInput}
+                      onChange={(e) => {
+                        setEmployeeMaxTextInput(e.target.value);
+                        // Update slider if value is within range
+                        const value = parseInt(e.target.value);
+                        if (!isNaN(value) && value >= 1 && value <= 1000) {
+                          setEmployeeCountMax(value);
+                        }
+                        setPage(1);
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Voer getallen in om buiten het bereik 1-1000 te zoeken
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Branche */}
-          <div className="w-full">
+          <div className="w-full py-4 border-b-2 border-gray-200">
             <Button 
               variant="ghost" 
               className="w-full justify-between h-12 px-0 text-left font-normal hover:bg-transparent"
@@ -407,49 +452,59 @@ export default function LeadDatabase() {
               <ChevronRightIcon className="w-5 h-5 text-gray-400" />
             </Button>
             {brancheOpen && (
-              <div className="mt-2 pl-4">
-                <MultiSelect
-                  options={(filterOptions?.industryLabels || []).map(industry => ({ value: industry, label: industry }))}
-                  value={selectedIndustries}
-                  onChange={(values) => {
-                    setSelectedIndustries(values);
-                    setPage(1);
-                  }}
-                  placeholder="Selecteer branches..."
-                  disabled={filterOptionsLoading}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Subbranche */}
-          <div className="w-full">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-between h-12 px-0 text-left font-normal hover:bg-transparent"
-              onClick={() => setSubbrancheOpen(!subbrancheOpen)}
-            >
-              <span className="text-base font-medium text-gray-900">Subbranche</span>
-              <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-            </Button>
-            {subbrancheOpen && (
-              <div className="mt-2 pl-4">
-                <MultiSelect
-                  options={(filterOptions?.subindustryLabels || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
-                  value={selectedSubindustries}
-                  onChange={(values) => {
-                    setSelectedSubindustries(values);
-                    setPage(1);
-                  }}
-                  placeholder="Selecteer subbranches..."
-                  disabled={filterOptionsLoading}
-                />
+              <div className="mt-2 pl-4 space-y-4">
+                <div>
+                  <MultiSelect
+                    options={(filterOptions?.industryLabels || []).map(industry => ({ value: industry, label: industry }))}
+                    value={selectedIndustries}
+                    onChange={(values) => {
+                      setSelectedIndustries(values);
+                      // Reset subbranche when branche changes
+                      if (values.length === 0) {
+                        setSelectedSubindustries([]);
+                      }
+                      setPage(1);
+                    }}
+                    placeholder="Selecteer branches..."
+                    disabled={filterOptionsLoading}
+                  />
+                </div>
+                
+                {/* Subbranche - Always visible but locked when no branche selected */}
+                <div className="pl-4">
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Subbranche</Label>
+                  {selectedIndustries.length === 0 ? (
+                    <div className="relative">
+                      <MultiSelect
+                        options={[]}
+                        value={[]}
+                        onChange={() => {}}
+                        placeholder="Eerst een branche selecteren..."
+                        disabled={true}
+                      />
+                      <div className="absolute inset-0 bg-white/90 rounded-md pointer-events-none flex items-center justify-center border border-gray-200">
+                        <span className="text-gray-500 text-sm font-medium">Eerst een branche selecteren</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <MultiSelect
+                      options={(filterOptions?.subindustryLabels || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
+                      value={selectedSubindustries}
+                      onChange={(values) => {
+                        setSelectedSubindustries(values);
+                        setPage(1);
+                      }}
+                      placeholder="Selecteer subbranches..."
+                      disabled={filterOptionsLoading}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
 
           {/* Locatie */}
-          <div className="w-full">
+          <div className="w-full py-4 border-b-2 border-gray-200">
             <Button 
               variant="ghost" 
               className="w-full justify-between h-12 px-0 text-left font-normal hover:bg-transparent"
@@ -459,17 +514,90 @@ export default function LeadDatabase() {
               <ChevronRightIcon className="w-5 h-5 text-gray-400" />
             </Button>
             {locationOpen && (
-              <div className="mt-2 pl-4">
-                <MultiSelect
-                  options={(filterOptions?.locations || []).map(location => ({ value: location, label: location }))}
-                  value={selectedLocations}
-                  onChange={(values) => {
-                    setSelectedLocations(values);
-                    setPage(1);
-                  }}
-                  placeholder="Selecteer locaties..."
-                  disabled={filterOptionsLoading}
-                />
+              <div className="mt-2 pl-4 space-y-4">
+                {/* Land */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Land</Label>
+                  <MultiSelect
+                    options={(filterOptions?.countries || []).map(country => ({ value: country, label: country }))}
+                    value={selectedCountries}
+                    onChange={(values) => {
+                      setSelectedCountries(values);
+                      // Reset provincie and stad when land changes
+                      if (values.length === 0) {
+                        setSelectedProvinces([]);
+                        setSelectedCities([]);
+                      }
+                      setPage(1);
+                    }}
+                    placeholder="Selecteer landen..."
+                    disabled={filterOptionsLoading}
+                  />
+                </div>
+                
+                {/* Provincie - Always visible but locked when no land selected */}
+                <div className="pl-4">
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Provincie/Staat</Label>
+                  {selectedCountries.length === 0 ? (
+                    <div className="relative">
+                      <MultiSelect
+                        options={[]}
+                        value={[]}
+                        onChange={() => {}}
+                        placeholder="Eerst een land selecteren..."
+                        disabled={true}
+                      />
+                      <div className="absolute inset-0 bg-white/90 rounded-md pointer-events-none flex items-center justify-center border border-gray-200">
+                        <span className="text-gray-500 text-sm font-medium">Eerst een land selecteren</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <MultiSelect
+                      options={(filterOptions?.provinces || []).map(province => ({ value: province, label: province }))}
+                      value={selectedProvinces}
+                      onChange={(values) => {
+                        setSelectedProvinces(values);
+                        // Reset stad when provincie changes
+                        if (values.length === 0) {
+                          setSelectedCities([]);
+                        }
+                        setPage(1);
+                      }}
+                      placeholder="Selecteer provincies..."
+                      disabled={filterOptionsLoading}
+                    />
+                  )}
+                </div>
+                
+                {/* Stad - Always visible but locked when no provincie selected */}
+                <div className="pl-8">
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Stad</Label>
+                  {selectedProvinces.length === 0 ? (
+                    <div className="relative">
+                      <MultiSelect
+                        options={[]}
+                        value={[]}
+                        onChange={() => {}}
+                        placeholder="Eerst een provincie selecteren..."
+                        disabled={true}
+                      />
+                      <div className="absolute inset-0 bg-white/90 rounded-md pointer-events-none flex items-center justify-center border border-gray-200">
+                        <span className="text-gray-500 text-sm font-medium">Eerst een provincie selecteren</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <MultiSelect
+                      options={(filterOptions?.cities || []).map(city => ({ value: city, label: city }))}
+                      value={selectedCities}
+                      onChange={(values) => {
+                        setSelectedCities(values);
+                        setPage(1);
+                      }}
+                      placeholder="Selecteer steden..."
+                      disabled={filterOptionsLoading}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -523,31 +651,31 @@ export default function LeadDatabase() {
         </div>
 
         {/* Table Container - Fixed sticky header */}
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-hidden relative min-h-0">
           <div className="h-full overflow-auto">
-            <div className="min-w-full">
+            <div className="min-w-[1400px] lg:min-w-full">
               <table className="w-full">
                 <thead className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
                   <tr>
-                    <th className="sticky left-0 z-30 w-[260px] px-4 py-3 bg-white text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-r border-gray-200">
+                    <th className="sticky left-0 z-30 w-[260px] xl:w-[300px] 2xl:w-[350px] px-4 py-2 bg-white text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-r border-gray-200">
                       Contactpersoon
                     </th>
-                    <th className="w-[200px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[200px] xl:w-[250px] 2xl:w-[300px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Functie
                     </th>
-                    <th className="w-[220px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[220px] xl:w-[280px] 2xl:w-[320px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Bedrijf
                     </th>
-                    <th className="w-[200px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[200px] xl:w-[250px] 2xl:w-[300px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Industrie
                     </th>
-                    <th className="w-[120px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[120px] xl:w-[150px] 2xl:w-[180px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Aantal medewerkers
                     </th>
-                    <th className="w-[220px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[220px] xl:w-[280px] 2xl:w-[350px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Locatie
                     </th>
-                    <th className="w-[100px] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="w-[100px] xl:w-[120px] 2xl:w-[140px] px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Actie
                     </th>
                   </tr>
@@ -557,7 +685,7 @@ export default function LeadDatabase() {
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={i} className="hover:bg-gray-50 transition-colors">
                         {Array.from({ length: 7 }).map((_, j) => (
-                          <td key={j} className={`px-4 py-4 ${j === 0 ? 'sticky left-0 z-10 bg-white border-r border-gray-200' : ''}`}>
+                          <td key={j} className={`px-4 py-3 ${j === 0 ? 'sticky left-0 z-10 bg-white border-r border-gray-200' : ''}`}>
                             <div className={`h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse rounded ${j === 0 ? 'w-[200px]' : 'w-full'}`} />
                           </td>
                         ))}
@@ -579,7 +707,7 @@ export default function LeadDatabase() {
                       return (
                         <tr key={contactId} className="hover:bg-gray-50 transition-colors group">
                           {/* Contactpersoon - Sticky */}
-                          <td className="sticky left-0 z-10 w-[260px] px-4 py-4 bg-white group-hover:bg-gray-50 border-r border-gray-200">
+                          <td className="sticky left-0 z-10 w-[260px] xl:w-[300px] 2xl:w-[350px] px-4 py-3 bg-white group-hover:bg-gray-50 border-r border-gray-200">
                             <div className="flex items-center gap-3">
                               <input type="radio" name="contacts-select" className="h-4 w-4 text-primary" />
                               <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-xs font-medium">
@@ -605,18 +733,18 @@ export default function LeadDatabase() {
                           </td>
 
                           {/* Functie */}
-                          <td className="px-4 py-4">
-                            <div className="w-[200px]">
+                          <td className="px-4 py-3">
+                            <div className="w-[200px] xl:w-[250px] 2xl:w-[300px]">
                               <div className="text-sm font-medium truncate text-foreground/90">{contact.job_title || '—'}</div>
                               {contact.function_group && (
-                                <Badge variant="secondary" className="mt-1">{contact.function_group}</Badge>
+                                <Badge variant="secondary" className="mt-0.5 text-xs">{contact.function_group}</Badge>
                               )}
                             </div>
                           </td>
 
                           {/* Bedrijf */}
-                          <td className="px-4 py-4">
-                            <div className="w-[220px]">
+                          <td className="px-4 py-3">
+                            <div className="w-[220px] xl:w-[280px] 2xl:w-[320px]">
                               <Link to={`/accounts/${(contact as any).company_id || ''}`} className="text-sm font-medium text-foreground hover:underline truncate block">
                                 {contact.company_name || '—'}
                               </Link>
@@ -631,23 +759,23 @@ export default function LeadDatabase() {
                           </td>
 
                           {/* Industrie */}
-                          <td className="px-4 py-4">
-                            <div className="w-[200px]">
+                          <td className="px-4 py-3">
+                            <div className="w-[200px] xl:w-[250px] 2xl:w-[300px]">
                               <div className="text-sm font-medium text-foreground/90 truncate">{contact.industry_label || contact.industry || '—'}</div>
                               {contact.subindustry_label && (
-                                <Badge variant="secondary" className="mt-1">{contact.subindustry_label}</Badge>
+                                <Badge variant="secondary" className="mt-0.5 text-xs">{contact.subindustry_label}</Badge>
                               )}
                             </div>
                           </td>
 
                           {/* Aantal medewerkers */}
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-3">
                             <div className="text-sm text-foreground/80">{contact.company_size ?? contact.employee_count ?? '—'}</div>
                           </td>
 
                           {/* Locatie */}
-                          <td className="px-4 py-4">
-                            <div className="w-[220px]">
+                          <td className="px-4 py-3">
+                            <div className="w-[220px] xl:w-[280px] 2xl:w-[350px]">
                               {(() => {
                                 const parts = [
                                   contact.company_city ?? contact.contact_city,
@@ -660,9 +788,9 @@ export default function LeadDatabase() {
                           </td>
 
                           {/* Actie */}
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-3">
                             <div className="flex justify-end">
-                              <Button size="sm" className="h-8">Contact</Button>
+                              <Button size="sm" className="h-7 text-xs">Contact</Button>
                             </div>
                           </td>
                         </tr>
@@ -675,18 +803,18 @@ export default function LeadDatabase() {
           </div>
         </div>
 
-        {/* Sticky Footer Pagination - Exact same as Contacts */}
-        <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <div className="text-muted-foreground font-medium">
-              <div>
+        {/* Sticky Footer Pagination - Improved design */}
+        <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm px-6 py-3 min-h-[60px]">
+          <div className="w-full flex items-center justify-center">
+            <div className="flex items-center gap-6">
+              <div className="text-gray-600 font-medium text-sm">
                 {Math.min((page-1)*pageSize+1, total)}–{Math.min(page*pageSize, total)} van {total}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page<=1} onClick={()=> setPage(p=> Math.max(1, p-1))} className="h-8">Vorige</Button>
-              <span>{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=> setPage(p=> Math.min(totalPages, p+1))} className="h-8">Volgende</Button>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="sm" disabled={page<=1} onClick={()=> setPage(p=> Math.max(1, p-1))} className="h-8 px-3 text-sm">Vorige</Button>
+                <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center">{page} / {totalPages}</span>
+                <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=> setPage(p=> Math.min(totalPages, p+1))} className="h-8 px-3 text-sm">Volgende</Button>
+              </div>
             </div>
           </div>
         </div>

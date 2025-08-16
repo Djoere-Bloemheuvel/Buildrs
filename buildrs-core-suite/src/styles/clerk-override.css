@@ -123,3 +123,88 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
+
+/* User Button and Dropdown Overrides */
+.cl-userButtonPopoverCard,
+.cl-popoverCard {
+  background: white !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Hide Clerk Branding */
+.cl-userButtonPopoverFooter,
+.cl-modalCloseButton + div,
+[class*="cl-"] [class*="powered"],
+[class*="cl-"] [class*="secure"],
+.cl-footerText,
+.cl-brandingText,
+.cl-poweredBy,
+.cl-securedBy {
+  display: none !important;
+}
+
+/* Specifically target "Secured by Clerk" text */
+.cl-userButtonPopoverCard .cl-userButtonPopoverFooter,
+.cl-userButtonPopoverCard footer,
+.cl-userButtonPopoverCard [class*="footer"],
+.cl-userButtonPopoverCard .cl-internal-* {
+  display: none !important;
+}
+
+/* Hide development mode banner */
+.cl-devModeNotice,
+.cl-badge,
+[class*="development"],
+[class*="devMode"] {
+  display: none !important;
+}
+
+/* User menu items styling */
+.cl-userButtonPopoverActionButton {
+  color: #374151 !important;
+  background: transparent !important;
+}
+
+.cl-userButtonPopoverActionButton:hover {
+  background: #f3f4f6 !important;
+}
+
+/* User profile section */
+.cl-userButtonPopoverMain {
+  color: #374151 !important;
+  background: transparent !important;
+}
+
+/* More aggressive hiding of Clerk branding */
+[data-clerk-modal] footer,
+[data-clerk-modal] [class*="footer"],
+[data-clerk-modal] [class*="brand"],
+[data-clerk-modal] [class*="powered"],
+[data-clerk-modal] [class*="secured"],
+div:has(> [class*="clerk"]):last-child,
+div[class*="cl-"]:last-child:empty,
+div[class*="cl-"]:contains("Secured by"),
+div[class*="cl-"]:contains("clerk"),
+div[class*="cl-"]:contains("Development mode") {
+  display: none !important;
+}
+
+/* Hide any text containing "clerk" or branding keywords */
+*:has-text("Secured by"),
+*:has-text("clerk"),
+*:has-text("Development mode"),
+*:has-text("Powered by") {
+  display: none !important;
+}
+
+/* Override any remaining transparent backgrounds in user menu */
+.cl-userButtonPopoverCard * {
+  background-color: inherit !important;
+}
+
+.cl-userButtonPopoverCard {
+  background-color: white !important;
+}

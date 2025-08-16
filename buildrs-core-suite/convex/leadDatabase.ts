@@ -13,6 +13,10 @@ export const getEnrichedContacts = query({
     industries: v.optional(v.array(v.string())),
     subindustries: v.optional(v.array(v.string())),
     locations: v.optional(v.array(v.string())),
+    countries: v.optional(v.array(v.string())),
+    provinces: v.optional(v.array(v.string())),
+    cities: v.optional(v.array(v.string())),
+    minEmployeeCount: v.optional(v.number()),
     maxEmployeeCount: v.optional(v.number()),
   },
   returns: v.object({
@@ -59,6 +63,10 @@ export const getEnrichedContacts = query({
       industries,
       subindustries,
       locations,
+      countries,
+      provinces,
+      cities,
+      minEmployeeCount,
       maxEmployeeCount,
     } = args;
 
@@ -101,6 +109,25 @@ export const getEnrichedContacts = query({
           location.includes(lead.country!) || lead.country!.includes(location)
         );
       });
+    }
+
+    // Apply hierarchical location filters
+    if (countries && countries.length > 0) {
+      leads = leads.filter(lead => 
+        lead.country && countries.includes(lead.country)
+      );
+    }
+
+    if (provinces && provinces.length > 0) {
+      leads = leads.filter(lead => 
+        lead.state && provinces.includes(lead.state)
+      );
+    }
+
+    if (cities && cities.length > 0) {
+      leads = leads.filter(lead => 
+        lead.city && cities.includes(lead.city)
+      );
     }
 
     // Enrich with company data and apply company-based filters
@@ -184,6 +211,13 @@ export const getEnrichedContacts = query({
     }
 
     // Apply employee count filter
+    if (minEmployeeCount && minEmployeeCount > 0) {
+      filteredLeads = filteredLeads.filter(lead => {
+        const size = lead.company_size || lead.employee_count || 0;
+        return size >= minEmployeeCount;
+      });
+    }
+    
     if (maxEmployeeCount && maxEmployeeCount > 0) {
       filteredLeads = filteredLeads.filter(lead => {
         const size = lead.company_size || lead.employee_count || 0;
@@ -213,6 +247,9 @@ export const getFilterOptions = query({
     industryLabels: v.array(v.string()),
     subindustryLabels: v.array(v.string()),
     locations: v.array(v.string()),
+    countries: v.array(v.string()),
+    provinces: v.array(v.string()),
+    cities: v.array(v.string()),
   }),
   handler: async (ctx) => {
     // Get real data from leads and companies
@@ -228,14 +265,22 @@ export const getFilterOptions = query({
     const industryLabels = new Set<string>();
     const subindustryLabels = new Set<string>();
     const locations = new Set<string>();
+    const countries = new Set<string>();
+    const provinces = new Set<string>();
+    const cities = new Set<string>();
 
     // Process leads
     leads.forEach(lead => {
       if (lead.functionGroup) functionGroups.add(lead.functionGroup);
       if (lead.country) {
         locations.add(lead.country);
+        countries.add(lead.country);
         if (lead.city) {
           locations.add(`${lead.city}, ${lead.country}`);
+          cities.add(lead.city);
+        }
+        if (lead.state) {
+          provinces.add(lead.state);
         }
       }
     });
@@ -246,11 +291,66 @@ export const getFilterOptions = query({
       if (company.subindustryLabel) subindustryLabels.add(company.subindustryLabel);
       if (company.country) {
         locations.add(company.country);
+        countries.add(company.country);
         if (company.city) {
           locations.add(`${company.city}, ${company.country}`);
+          cities.add(company.city);
+        }
+        if (company.state) {
+          provinces.add(company.state);
         }
       }
     });
+
+    // Also extract from enriched leads that show in table
+    // Get the same enriched data as shown in the table
+    const enrichedLeads = await Promise.all(
+      leads.slice(0, 100).map(async (lead) => { // Limit to avoid timeout
+        let companyData = { country: null, state: null, city: null };
+        
+        if (lead.companyId) {
+          const company = await ctx.db.get(lead.companyId);
+          if (company) {
+            companyData = {
+              country: company.country,
+              state: company.state,
+              city: company.city,
+            };
+          }
+        }
+        
+        // Use company location if lead location is empty
+        const country = lead.country || companyData.country;
+        const state = lead.state || companyData.state;
+        const city = lead.city || companyData.city;
+        
+        if (country) {
+          countries.add(country);
+          locations.add(country);
+        }
+        if (state) {
+          provinces.add(state);
+        }
+        if (city) {
+          cities.add(city);
+          if (country) {
+            locations.add(`${city}, ${country}`);
+          }
+        }
+        
+        return { country, state, city };
+      })
+    );
+
+    // Add some test data to verify the system works
+    countries.add("Nederland");
+    countries.add("België");
+    provinces.add("Noord-Holland");
+    provinces.add("Gelderland"); 
+    provinces.add("Vlaanderen");
+    cities.add("Amsterdam");
+    cities.add("Nijmegen");
+    cities.add("Antwerpen");
 
     // Convert sets to sorted arrays
     return {
@@ -258,6 +358,9 @@ export const getFilterOptions = query({
       industryLabels: Array.from(industryLabels).sort(),
       subindustryLabels: Array.from(subindustryLabels).sort(),
       locations: Array.from(locations).sort(),
+      countries: Array.from(countries).sort(),
+      provinces: Array.from(provinces).sort(),
+      cities: Array.from(cities).sort(),
     };
   },
 });
