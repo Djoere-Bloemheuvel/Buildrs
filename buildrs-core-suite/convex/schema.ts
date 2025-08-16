@@ -1300,4 +1300,201 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_effective_date", ["effectiveDate"])
     .index("by_change_type", ["changeType"]),
+
+  // ===============================
+  // LEAD AUTOMATION
+  // ===============================
+
+  automationTemplates: defineTable({
+    key: v.string(), // "lead-conversion-basic", "email-nurturing", "linkedin-outreach"
+    name: v.string(),
+    description: v.string(),
+    category: v.string(), // "lead-conversion", "lead-nurturing", "outreach", "analytics"
+    type: v.string(), // "scheduled", "trigger-based", "event-driven"
+    
+    // Default configuration (can be overridden by clients)
+    defaultSettings: v.object({
+      dailyLimit: v.optional(v.number()),
+      executionTime: v.optional(v.string()),
+      maxRetries: v.optional(v.number()),
+      retryDelayMinutes: v.optional(v.number()),
+      targetingOptions: v.array(v.string()), // Available targeting fields
+      requiredCredits: v.optional(v.number()), // Credits needed per execution
+    }),
+    
+    // Validation rules for this template
+    validationRules: v.optional(v.object({
+      requiredFields: v.array(v.string()),
+      minDailyLimit: v.optional(v.number()),
+      maxDailyLimit: v.optional(v.number()),
+      allowedExecutionTimes: v.optional(v.array(v.string())),
+    })),
+    
+    // Template metadata
+    isActive: v.boolean(),
+    version: v.string(),
+    priority: v.optional(v.number()), // For execution ordering
+    createdBy: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"])
+    .index("by_category", ["category"])
+    .index("by_type", ["type"])
+    .index("by_active", ["isActive"])
+    .index("by_priority", ["priority"]),
+
+  clientAutomations: defineTable({
+    clientId: v.union(v.id("clients"), v.string()), // Accept both ID and string for backwards compatibility
+    templateId: v.id("automationTemplates"),
+    
+    // Client customization
+    customName: v.optional(v.string()), // Override template name
+    isActive: v.boolean(),
+    isPaused: v.optional(v.boolean()), // Temporary pause (different from disabled)
+    
+    // Target audience criteria (client-specific, extensible)
+    targetingCriteria: v.optional(v.object({
+      functionGroups: v.optional(v.array(v.string())),
+      industries: v.optional(v.array(v.string())),
+      countries: v.optional(v.array(v.string())),
+      employeeMin: v.optional(v.number()),
+      employeeMax: v.optional(v.number()),
+      // Future: add more criteria here
+      customFilters: v.optional(v.object({})),
+    })),
+    
+    // Legacy fields (keeping for backward compatibility)
+    targetFunctionGroups: v.optional(v.array(v.string())),
+    targetIndustries: v.optional(v.array(v.string())),
+    targetCountries: v.optional(v.array(v.string())),
+    targetEmployeeMin: v.optional(v.number()),
+    targetEmployeeMax: v.optional(v.number()),
+    
+    // Automation settings (can override template defaults)
+    settings: v.optional(v.object({
+      dailyLimit: v.optional(v.number()),
+      executionTime: v.optional(v.string()),
+      maxRetries: v.optional(v.number()),
+      retryDelayMinutes: v.optional(v.number()),
+      priority: v.optional(v.number()),
+    })),
+    
+    // Legacy settings (keeping for backward compatibility)
+    dailyLimit: v.number(),
+    executionTime: v.string(), // "09:00" format
+    
+    // Execution tracking
+    lastExecuted: v.optional(v.number()),
+    lastExecutionStatus: v.optional(v.string()), // "success", "failed", "partial"
+    consecutiveFailures: v.optional(v.number()),
+    totalExecutions: v.optional(v.number()),
+    totalConverted: v.number(),
+    totalCreditsUsed: v.optional(v.number()),
+    
+    // Error handling
+    lastError: v.optional(v.string()),
+    nextRetryAt: v.optional(v.number()),
+    
+    // Metadata
+    createdBy: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_template", ["templateId"])
+    .index("by_active", ["isActive"])
+    .index("by_execution_time", ["executionTime"])
+    .index("by_client_active", ["clientId", "isActive"])
+    .index("by_next_retry", ["nextRetryAt"])
+    .index("by_status", ["lastExecutionStatus"]),
+
+  automationExecutions: defineTable({
+    clientAutomationId: v.id("clientAutomations"),
+    clientId: v.id("clients"),
+    templateId: v.id("automationTemplates"),
+    
+    // Execution metadata
+    executionId: v.string(), // Unique identifier for this execution
+    executedAt: v.number(),
+    executionType: v.string(), // "scheduled", "manual", "retry"
+    triggerSource: v.optional(v.string()), // "cron", "api", "user"
+    
+    // Execution results
+    status: v.string(), // "pending", "running", "success", "failed", "partial"
+    leadsProcessed: v.number(),
+    leadsConverted: v.number(),
+    creditsUsed: v.optional(v.number()),
+    
+    // Error handling
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    retryAttempt: v.optional(v.number()),
+    
+    // Performance metrics
+    startTime: v.optional(v.number()),
+    endTime: v.optional(v.number()),
+    executionDurationMs: v.optional(v.number()),
+    
+    // Detailed execution info
+    executionDetails: v.optional(v.object({
+      criteria: v.object({
+        targetFunctionGroups: v.optional(v.array(v.string())),
+        targetIndustries: v.optional(v.array(v.string())),
+        targetCountries: v.optional(v.array(v.string())),
+        targetEmployeeMin: v.optional(v.number()),
+        targetEmployeeMax: v.optional(v.number()),
+      }),
+      searchResults: v.optional(v.object({
+        totalMatched: v.number(),
+        filtered: v.number(),
+        processed: v.number(),
+      })),
+      convertedLeadIds: v.array(v.string()),
+      skippedLeadIds: v.optional(v.array(v.string())),
+      failedLeadIds: v.optional(v.array(v.string())),
+    })),
+  }).index("by_client_automation", ["clientAutomationId"])
+    .index("by_client", ["clientId"])
+    .index("by_template", ["templateId"])
+    .index("by_executed_at", ["executedAt"])
+    .index("by_status", ["status"])
+    .index("by_success", ["success"])
+    .index("by_execution_id", ["executionId"])
+    .index("by_client_status", ["clientId", "status"]),
+
+  // New table for automation health monitoring
+  automationHealthMetrics: defineTable({
+    clientAutomationId: v.id("clientAutomations"),
+    clientId: v.id("clients"),
+    
+    // Time window for these metrics
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    periodType: v.string(), // "hourly", "daily", "weekly"
+    
+    // Performance metrics
+    totalExecutions: v.number(),
+    successfulExecutions: v.number(),
+    failedExecutions: v.number(),
+    avgExecutionTime: v.optional(v.number()),
+    totalLeadsProcessed: v.number(),
+    totalLeadsConverted: v.number(),
+    conversionRate: v.optional(v.number()),
+    
+    // Resource usage
+    totalCreditsUsed: v.optional(v.number()),
+    avgCreditsPerExecution: v.optional(v.number()),
+    
+    // Error tracking
+    errorCounts: v.optional(v.object({})), // Map of error codes to counts
+    
+    // System health
+    lastHealthCheck: v.number(),
+    healthStatus: v.string(), // "healthy", "warning", "critical"
+    
+    createdAt: v.number(),
+  }).index("by_automation", ["clientAutomationId"])
+    .index("by_client", ["clientId"])
+    .index("by_period", ["periodStart", "periodEnd"])
+    .index("by_health_status", ["healthStatus"]),
 });

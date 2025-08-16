@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useNavigate } from 'react-router-dom';
 
 import { useConvexAuth } from '@/hooks/useConvexAuth';
@@ -18,12 +19,10 @@ import { MultiSelect, type MultiOption } from '@/components/ui/MultiSelect';
 import PropositionSelect from '@/components/lead/PropositionSelect';
 
 export default function LeadEmail() {
-  const {
-    profile
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const { user } = useConvexAuth();
+  // Mock profile data
+  const profile = { client_id: 'client-1' };
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [openNew, setOpenNew] = useState(false);
   const [name, setName] = useState('');

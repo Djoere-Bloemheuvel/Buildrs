@@ -1,6 +1,71 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
+/**
+ * Normalize location names to handle inconsistencies in data
+ */
+function normalizeLocationName(location: string): string {
+  if (!location) return "";
+  
+  const normalized = location.trim().toLowerCase();
+  
+  // Belgian province normalization
+  const belgianProvinceMap: Record<string, string> = {
+    "vlaanderen": "vlaams gewest",
+    "vlaams gewest": "vlaams gewest", 
+    "flanders": "vlaams gewest",
+    "wallonie": "waals gewest",
+    "waals gewest": "waals gewest",
+    "wallonia": "waals gewest",
+    "brussel": "brussels hoofdstedelijk gewest",
+    "brussels hoofdstedelijk gewest": "brussels hoofdstedelijk gewest",
+    "brussels-capital region": "brussels hoofdstedelijk gewest",
+    "région de bruxelles-capitale": "brussels hoofdstedelijk gewest",
+    
+    // Dutch provinces
+    "noord-holland": "noord-holland",
+    "zuid-holland": "zuid-holland",
+    "noord-brabant": "noord-brabant",
+    "gelderland": "gelderland",
+    "utrecht": "utrecht",
+    "overijssel": "overijssel",
+    "groningen": "groningen",
+    "friesland": "friesland",
+    "drenthe": "drenthe",
+    "flevoland": "flevoland",
+    "zeeland": "zeeland",
+    "limburg": "limburg",
+  };
+  
+  // Check if we have a direct mapping
+  if (belgianProvinceMap[normalized]) {
+    return belgianProvinceMap[normalized];
+  }
+  
+  // Return original if no mapping found
+  return location;
+}
+
+/**
+ * Get normalized country-province-city mapping
+ */
+function getNormalizedLocation(country: string, state: string, city: string) {
+  const normalizedCountry = country?.toLowerCase();
+  let normalizedState = state;
+  
+  // Only normalize Belgian/Dutch provinces
+  if (normalizedCountry === "belgium" || normalizedCountry === "belgie" || normalizedCountry === "belgique" || 
+      normalizedCountry === "netherlands" || normalizedCountry === "nederland") {
+    normalizedState = normalizeLocationName(state);
+  }
+  
+  return {
+    country: country,
+    state: normalizedState,
+    city: city
+  };
+}
+
 export const getEnrichedContacts = query({
   args: {
     search: v.optional(v.string()),
@@ -119,9 +184,11 @@ export const getEnrichedContacts = query({
     }
 
     if (provinces && provinces.length > 0) {
-      leads = leads.filter(lead => 
-        lead.state && provinces.includes(lead.state)
-      );
+      leads = leads.filter(lead => {
+        if (!lead.state || !lead.country) return false;
+        const normalized = getNormalizedLocation(lead.country, lead.state, lead.city || '');
+        return provinces.includes(normalized.state);
+      });
     }
 
     if (cities && cities.length > 0) {
@@ -342,15 +409,7 @@ export const getFilterOptions = query({
       })
     );
 
-    // Add some test data to verify the system works
-    countries.add("Nederland");
-    countries.add("België");
-    provinces.add("Noord-Holland");
-    provinces.add("Gelderland"); 
-    provinces.add("Vlaanderen");
-    cities.add("Amsterdam");
-    cities.add("Nijmegen");
-    cities.add("Antwerpen");
+    // Location data is now extracted from real leads and companies data above
 
     // Convert sets to sorted arrays
     return {
@@ -361,6 +420,212 @@ export const getFilterOptions = query({
       countries: Array.from(countries).sort(),
       provinces: Array.from(provinces).sort(),
       cities: Array.from(cities).sort(),
+    };
+  },
+});
+
+/**
+ * Get filtered location options based on selected countries
+ */
+export const getFilteredLocationOptions = query({
+  args: {
+    selectedCountries: v.optional(v.array(v.string())),
+    selectedProvinces: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    countries: v.array(v.string()),
+    provinces: v.array(v.string()),
+    cities: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { selectedCountries, selectedProvinces } = args;
+
+    // Get leads and companies data
+    const leads = await ctx.db
+      .query("leads")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .take(1000);
+
+    const companies = await ctx.db.query("companies").take(1000);
+
+    // Build hierarchical location data
+    const locationData = new Map<string, Set<string>>(); // country -> provinces
+    const provinceData = new Map<string, Set<string>>(); // province -> cities
+    const allCountries = new Set<string>();
+    const allProvinces = new Set<string>();
+    const allCities = new Set<string>();
+
+    // Process leads
+    leads.forEach(lead => {
+      if (lead.country) {
+        allCountries.add(lead.country);
+        
+        if (lead.state) {
+          // Normalize the location data
+          const normalized = getNormalizedLocation(lead.country, lead.state, lead.city);
+          const normalizedState = normalized.state;
+          
+          allProvinces.add(normalizedState);
+          
+          // Add province to country mapping
+          if (!locationData.has(lead.country)) {
+            locationData.set(lead.country, new Set());
+          }
+          locationData.get(lead.country)?.add(normalizedState);
+          
+          if (lead.city) {
+            allCities.add(lead.city);
+            
+            // Add city to province mapping (use normalized state)
+            if (!provinceData.has(normalizedState)) {
+              provinceData.set(normalizedState, new Set());
+            }
+            provinceData.get(normalizedState)?.add(lead.city);
+          }
+        }
+      }
+    });
+
+    // Process companies
+    companies.forEach(company => {
+      if (company.country) {
+        allCountries.add(company.country);
+        
+        if (company.state) {
+          // Normalize the location data
+          const normalized = getNormalizedLocation(company.country, company.state, company.city);
+          const normalizedState = normalized.state;
+          
+          allProvinces.add(normalizedState);
+          
+          // Add province to country mapping
+          if (!locationData.has(company.country)) {
+            locationData.set(company.country, new Set());
+          }
+          locationData.get(company.country)?.add(normalizedState);
+          
+          if (company.city) {
+            allCities.add(company.city);
+            
+            // Add city to province mapping (use normalized state)
+            if (!provinceData.has(normalizedState)) {
+              provinceData.set(normalizedState, new Set());
+            }
+            provinceData.get(normalizedState)?.add(company.city);
+          }
+        }
+      }
+    });
+
+    // Filter based on selections
+    let filteredProvinces = new Set<string>();
+    let filteredCities = new Set<string>();
+
+    if (selectedCountries && selectedCountries.length > 0) {
+      // Only show provinces for selected countries
+      selectedCountries.forEach(country => {
+        const provincesForCountry = locationData.get(country);
+        if (provincesForCountry) {
+          provincesForCountry.forEach(province => filteredProvinces.add(province));
+        }
+      });
+    } else {
+      // No countries selected, show all provinces
+      filteredProvinces = allProvinces;
+    }
+
+    if (selectedProvinces && selectedProvinces.length > 0) {
+      // Only show cities for selected provinces
+      selectedProvinces.forEach(province => {
+        const citiesForProvince = provinceData.get(province);
+        if (citiesForProvince) {
+          citiesForProvince.forEach(city => filteredCities.add(city));
+        }
+      });
+    } else if (selectedCountries && selectedCountries.length > 0) {
+      // Countries selected but no provinces, show cities for those countries
+      selectedCountries.forEach(country => {
+        const provincesForCountry = locationData.get(country);
+        if (provincesForCountry) {
+          provincesForCountry.forEach(province => {
+            const citiesForProvince = provinceData.get(province);
+            if (citiesForProvince) {
+              citiesForProvince.forEach(city => filteredCities.add(city));
+            }
+          });
+        }
+      });
+    } else {
+      // No filtering, show all cities
+      filteredCities = allCities;
+    }
+
+    return {
+      countries: Array.from(allCountries).sort(),
+      provinces: Array.from(filteredProvinces).sort(),
+      cities: Array.from(filteredCities).sort(),
+    };
+  },
+});
+
+/**
+ * Get filtered industry options based on selected industries
+ */
+export const getFilteredIndustryOptions = query({
+  args: {
+    selectedIndustries: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    industries: v.array(v.string()),
+    subindustries: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { selectedIndustries } = args;
+
+    // Get companies data (industries are company-level data)
+    const companies = await ctx.db.query("companies").take(1000);
+
+    // Build hierarchical industry data
+    const industryData = new Map<string, Set<string>>(); // industry -> subindustries
+    const allIndustries = new Set<string>();
+    const allSubindustries = new Set<string>();
+
+    // Process companies to build industry hierarchy
+    companies.forEach(company => {
+      if (company.industryLabel) {
+        allIndustries.add(company.industryLabel);
+        
+        if (company.subindustryLabel) {
+          allSubindustries.add(company.subindustryLabel);
+          
+          // Add subindustry to industry mapping
+          if (!industryData.has(company.industryLabel)) {
+            industryData.set(company.industryLabel, new Set());
+          }
+          industryData.get(company.industryLabel)?.add(company.subindustryLabel);
+        }
+      }
+    });
+
+    // Filter subindustries based on selected industries
+    let filteredSubindustries = new Set<string>();
+
+    if (selectedIndustries && selectedIndustries.length > 0) {
+      // Only show subindustries for selected industries
+      selectedIndustries.forEach(industry => {
+        const subindustriesForIndustry = industryData.get(industry);
+        if (subindustriesForIndustry) {
+          subindustriesForIndustry.forEach(subindustry => filteredSubindustries.add(subindustry));
+        }
+      });
+    } else {
+      // No industries selected, show all subindustries
+      filteredSubindustries = allSubindustries;
+    }
+
+    return {
+      industries: Array.from(allIndustries).sort(),
+      subindustries: Array.from(filteredSubindustries).sort(),
     };
   },
 });

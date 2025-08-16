@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
-import { Search, Download, ChevronLeft, ChevronRight, Building2, Mail, MapPin, ChevronRight as ChevronRightIcon, Filter, Star, Menu, Users, Briefcase, Globe, Plus, RotateCcw, Archive } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, Building2, Mail, MapPin, ChevronRight as ChevronRightIcon, Filter, Star, Menu, Users, Briefcase, Globe, Plus, RotateCcw, Archive, Clock, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
   ColumnDef,
@@ -20,6 +20,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -35,7 +49,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MultiSelect, MultiOption } from '@/components/ui/MultiSelect';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { useConvexAuth } from '@/hooks/useConvexAuth';
+import { toast } from 'react-hot-toast';
 
 // Same type as Contacts page
 type EnrichedContact = {
@@ -103,6 +119,39 @@ export default function LeadDatabase() {
   const [employeeCountMax, setEmployeeCountMax] = useState<number>(1000);
   const [employeeMinTextInput, setEmployeeMinTextInput] = useState<string>('');
   const [employeeMaxTextInput, setEmployeeMaxTextInput] = useState<string>('');
+  
+  // Lead selection state for conversion
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [showConversionModal, setShowConversionModal] = useState<boolean>(false);
+  const [showManualConversionModal, setShowManualConversionModal] = useState<boolean>(false);
+  const [isConverting, setIsConverting] = useState<boolean>(false);
+  
+  // Target audience conversion state
+  const [targetFunctionGroups, setTargetFunctionGroups] = useState<string[]>([]);
+  const [targetIndustries, setTargetIndustries] = useState<string[]>([]);
+  const [audienceEmployeeMin, setAudienceEmployeeMin] = useState<number>(1);
+  const [audienceEmployeeMax, setAudienceEmployeeMax] = useState<number>(1000);
+  const [targetCountries, setTargetCountries] = useState<string[]>([]);
+  const [targetAmount, setTargetAmount] = useState<number>(50);
+  const [matchedLeads, setMatchedLeads] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  
+  // Automation settings
+  const [enableAutomation, setEnableAutomation] = useState<boolean>(false);
+  const [dailyLimit, setDailyLimit] = useState<number | ''>('');
+  const [automationTime, setAutomationTime] = useState<string>("09:00");
+  const [activeTab, setActiveTab] = useState<string>("direct");
+
+  // Backend mutations
+  const convertLeadsToContacts = useMutation(api.leadConversion.convertLeadsToContacts);
+  const getTargetAudienceLeads = useMutation(api.leadConversion.getTargetAudienceLeads);
+  
+  // Automation mutations
+  const createClientAutomation = useMutation(api.automationsStringClient.createClientAutomationWithStringId);
+  const automationTemplates = useQuery(api.automations.getAutomationTemplates);
+  const clientAutomations = useQuery(api.automationsStringClient.getClientAutomationsWithStringId, {
+    clientIdentifier: profile?.client_id || "",
+  });
 
   // Filter panel states
   const [functionGroupOpen, setFunctionGroupOpen] = useState(false);
@@ -112,11 +161,18 @@ export default function LeadDatabase() {
   const [locationOpen, setLocationOpen] = useState(false);
 
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(25);
+  const [pageSize] = useState<number>(100);
 
   // Get filter options from Convex
   const filterOptions = useQuery(api.leadDatabase.getFilterOptions);
-  const filterOptionsLoading = filterOptions === undefined;
+  const filteredLocationOptions = useQuery(api.leadDatabase.getFilteredLocationOptions, {
+    selectedCountries: selectedCountries.length > 0 ? selectedCountries : undefined,
+    selectedProvinces: selectedProvinces.length > 0 ? selectedProvinces : undefined,
+  });
+  const filteredIndustryOptions = useQuery(api.leadDatabase.getFilteredIndustryOptions, {
+    selectedIndustries: selectedIndustries.length > 0 ? selectedIndustries : undefined,
+  });
+  const filterOptionsLoading = filterOptions === undefined || filteredLocationOptions === undefined || filteredIndustryOptions === undefined;
 
   // Get leads data from Convex
   const targetEmployeeMin = employeeMinTextInput ? parseInt(employeeMinTextInput) : employeeCountMin;
@@ -156,6 +212,204 @@ export default function LeadDatabase() {
     setEmployeeMinTextInput('');
     setEmployeeMaxTextInput('');
     setPage(1);
+  };
+
+  // Lead selection functions
+  const toggleLeadSelection = (leadId: string) => {
+    const newSelected = new Set(selectedLeads);
+    if (newSelected.has(leadId)) {
+      newSelected.delete(leadId);
+    } else {
+      newSelected.add(leadId);
+    }
+    setSelectedLeads(newSelected);
+  };
+
+  const selectAllLeads = () => {
+    const currentPageLeadIds = contacts.map(contact => contact.id);
+    const newSelected = new Set(selectedLeads);
+    currentPageLeadIds.forEach(id => newSelected.add(id));
+    setSelectedLeads(newSelected);
+  };
+
+  const deselectAllLeads = () => {
+    const currentPageLeadIds = new Set(contacts.map(contact => contact.id));
+    const newSelected = new Set(selectedLeads);
+    currentPageLeadIds.forEach(id => newSelected.delete(id));
+    setSelectedLeads(newSelected);
+  };
+
+  // Check if all leads on current page are selected
+  const allCurrentPageSelected = contacts.length > 0 && contacts.every(contact => selectedLeads.has(contact.id));
+  const someCurrentPageSelected = contacts.some(contact => selectedLeads.has(contact.id));
+
+  const handleConvertToContacts = () => {
+    if (selectedLeads.size === 0) {
+      return; // No leads selected
+    }
+    setShowManualConversionModal(true);
+  };
+
+  const performConversion = async () => {
+    if (selectedLeads.size === 0 || !profile?.client_id) {
+      toast.error('Geen leads geselecteerd of geen client ID beschikbaar');
+      return;
+    }
+
+    setIsConverting(true);
+
+    try {
+      const leadIdsArray = Array.from(selectedLeads);
+      const result = await convertLeadsToContacts({
+        leadIds: leadIdsArray as any[], // Type assertion needed for Convex ID type
+        clientIdentifier: profile.client_id, // Now using string identifier
+      });
+
+      if (result.success) {
+        toast.success(
+          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd naar contacten!`
+        );
+        
+        if (result.skippedCount > 0) {
+          toast.warning(
+            `${result.skippedCount} lead${result.skippedCount > 1 ? 's' : ''} overgeslagen (${result.errors.join(', ')})`
+          );
+        }
+      } else {
+        toast.error('Er zijn fouten opgetreden tijdens de conversie');
+        result.errors.forEach(error => toast.error(error));
+      }
+
+      // Clear selection and close modal
+      setSelectedLeads(new Set());
+      setShowManualConversionModal(false);
+      
+      // Optionally refresh the data
+      // The useQuery will automatically refresh the data
+
+    } catch (error) {
+      console.error('Conversion error:', error);
+      toast.error(`Fout bij conversie: ${error.message}`);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  // Target audience matching functions
+  const searchTargetAudience = async () => {
+    if (!profile?.client_id) {
+      toast.error('Geen client ID beschikbaar');
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const result = await getTargetAudienceLeads({
+        functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
+        industries: targetIndustries.length > 0 ? targetIndustries : undefined,
+        countries: targetCountries.length > 0 ? targetCountries : undefined,
+        minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
+        maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
+        maxResults: 1000, // Verhoogd naar 1000 voor meer resultaten
+        clientIdentifier: profile.client_id,
+      });
+
+      setMatchedLeads(result.leads);
+      toast.success(`${result.totalMatches} passende leads gevonden!`);
+    } catch (error) {
+      console.error('Target audience search error:', error);
+      toast.error(`Fout bij zoeken: ${error.message}`);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const convertSelectedAudience = async () => {
+    if (activeTab === "automation") {
+      // Create automation for client
+      if (!automationTemplates || automationTemplates.length === 0) {
+        toast.error('Geen automation templates beschikbaar');
+        return;
+      }
+
+      // Use the basic template by default
+      const basicTemplate = automationTemplates.find(t => t.key === "lead-conversion-basic");
+      if (!basicTemplate) {
+        toast.error('Basic automation template niet gevonden');
+        return;
+      }
+
+      if (!dailyLimit || dailyLimit === '' || dailyLimit < 1) {
+        toast.error('Vul een geldig aantal leads per dag in (minimaal 1)');
+        return;
+      }
+
+      try {
+        setIsConverting(true);
+        const automationId = await createClientAutomation({
+          clientIdentifier: profile.client_id,
+          templateId: basicTemplate._id,
+          customName: "Smart Conversie Automatisering",
+          targetFunctionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
+          targetIndustries: targetIndustries.length > 0 ? targetIndustries : undefined,
+          targetCountries: targetCountries.length > 0 ? targetCountries : undefined,
+          targetEmployeeMin: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
+          targetEmployeeMax: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
+          dailyLimit,
+          executionTime: automationTime,
+        });
+
+        toast.success(`Automatisering succesvol ingesteld: ${dailyLimit} leads per dag om ${automationTime}`);
+        setShowConversionModal(false);
+        
+        // Reset form
+        setTargetFunctionGroups([]);
+        setTargetIndustries([]);
+        setTargetCountries([]);
+        setAudienceEmployeeMin(1);
+        setAudienceEmployeeMax(1000);
+        setDailyLimit('');
+        setAutomationTime("09:00");
+        
+      } catch (error) {
+        console.error('Error creating automation:', error);
+        toast.error(`Fout bij aanmaken automatisering: ${error.message}`);
+      } finally {
+        setIsConverting(false);
+      }
+      return;
+    }
+
+    const leadsToConvert = matchedLeads.slice(0, targetAmount);
+    if (leadsToConvert.length === 0) {
+      toast.error('Geen leads geselecteerd voor conversie');
+      return;
+    }
+
+    setIsConverting(true);
+    try {
+      const leadIds = leadsToConvert.map(lead => lead.leadId);
+      const result = await convertLeadsToContacts({
+        leadIds: leadIds as any[],
+        clientIdentifier: profile.client_id,
+      });
+
+      if (result.success) {
+        toast.success(
+          `${result.convertedCount} lead${result.convertedCount > 1 ? 's' : ''} succesvol geconverteerd!`
+        );
+        setShowConversionModal(false);
+        setMatchedLeads([]);
+      } else {
+        toast.error('Er zijn fouten opgetreden tijdens de conversie');
+        result.errors.forEach(error => toast.error(error));
+      }
+    } catch (error) {
+      console.error('Conversion error:', error);
+      toast.error(`Fout bij conversie: ${error.message}`);
+    } finally {
+      setIsConverting(false);
+    }
   };
 
   // Exact same columns as Contacts page
@@ -371,17 +625,23 @@ export default function LeadDatabase() {
               <ChevronRightIcon className="w-5 h-5 text-gray-400" />
             </Button>
             {employeesOpen && (
-              <div className="mt-2 space-y-4 pl-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Aantal medewerkers: {employeeMinTextInput || employeeCountMin} - {employeeMaxTextInput || employeeCountMax}
-                  </Label>
+              <div className="mt-3 pl-4 space-y-3">
+                {/* Clean minimal range display */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    {employeeMinTextInput || employeeCountMin} - {employeeMaxTextInput || employeeCountMax}
+                  </span>
+                  <span className="text-xs text-gray-500">medewerkers</span>
+                </div>
+                
+                {/* Elegant slider */}
+                <div className="space-y-3 px-1">
                   <Slider
                     value={[employeeCountMin, employeeCountMax]}
                     onValueChange={(values) => {
                       setEmployeeCountMin(values[0]);
                       setEmployeeCountMax(values[1]);
-                      setEmployeeMinTextInput(''); // Clear text inputs when using slider
+                      setEmployeeMinTextInput('');
                       setEmployeeMaxTextInput('');
                       setPage(1);
                     }}
@@ -390,52 +650,43 @@ export default function LeadDatabase() {
                     step={1}
                     className="w-full"
                   />
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">1</span>
-                    <div className="flex-1"></div>
-                    <span className="text-xs text-gray-500">1000</span>
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>1</span>
+                    <span>1000</span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Of voer bereik handmatig in:</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="Van (bijv. 10)"
-                      value={employeeMinTextInput}
-                      onChange={(e) => {
-                        setEmployeeMinTextInput(e.target.value);
-                        // Update slider if value is within range
-                        const value = parseInt(e.target.value);
-                        if (!isNaN(value) && value >= 1 && value <= 1000) {
-                          setEmployeeCountMin(value);
-                        }
-                        setPage(1);
-                      }}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-500">tot</span>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="Tot (bijv. 500)"
-                      value={employeeMaxTextInput}
-                      onChange={(e) => {
-                        setEmployeeMaxTextInput(e.target.value);
-                        // Update slider if value is within range
-                        const value = parseInt(e.target.value);
-                        if (!isNaN(value) && value >= 1 && value <= 1000) {
-                          setEmployeeCountMax(value);
-                        }
-                        setPage(1);
-                      }}
-                      className="flex-1"
-                    />
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Voer getallen in om buiten het bereik 1-1000 te zoeken
-                  </div>
+                
+                {/* Minimal input fields */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={employeeMinTextInput}
+                    onChange={(e) => {
+                      setEmployeeMinTextInput(e.target.value);
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 1 && value <= 1000) {
+                        setEmployeeCountMin(value);
+                      }
+                      setPage(1);
+                    }}
+                    className="h-9 text-sm"
+                  />
+                  <div className="w-3 h-px bg-gray-300"></div>
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={employeeMaxTextInput}
+                    onChange={(e) => {
+                      setEmployeeMaxTextInput(e.target.value);
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 1 && value <= 1000) {
+                        setEmployeeCountMax(value);
+                      }
+                      setPage(1);
+                    }}
+                    className="h-9 text-sm"
+                  />
                 </div>
               </div>
             )}
@@ -455,14 +706,12 @@ export default function LeadDatabase() {
               <div className="mt-2 pl-4 space-y-4">
                 <div>
                   <MultiSelect
-                    options={(filterOptions?.industryLabels || []).map(industry => ({ value: industry, label: industry }))}
+                    options={(filteredIndustryOptions?.industries || []).map(industry => ({ value: industry, label: industry }))}
                     value={selectedIndustries}
                     onChange={(values) => {
                       setSelectedIndustries(values);
                       // Reset subbranche when branche changes
-                      if (values.length === 0) {
-                        setSelectedSubindustries([]);
-                      }
+                      setSelectedSubindustries([]);
                       setPage(1);
                     }}
                     placeholder="Selecteer branches..."
@@ -488,7 +737,7 @@ export default function LeadDatabase() {
                     </div>
                   ) : (
                     <MultiSelect
-                      options={(filterOptions?.subindustryLabels || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
+                      options={(filteredIndustryOptions?.subindustries || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
                       value={selectedSubindustries}
                       onChange={(values) => {
                         setSelectedSubindustries(values);
@@ -519,15 +768,13 @@ export default function LeadDatabase() {
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Land</Label>
                   <MultiSelect
-                    options={(filterOptions?.countries || []).map(country => ({ value: country, label: country }))}
+                    options={(filteredLocationOptions?.countries || []).map(country => ({ value: country, label: country }))}
                     value={selectedCountries}
                     onChange={(values) => {
                       setSelectedCountries(values);
                       // Reset provincie and stad when land changes
-                      if (values.length === 0) {
-                        setSelectedProvinces([]);
-                        setSelectedCities([]);
-                      }
+                      setSelectedProvinces([]);
+                      setSelectedCities([]);
                       setPage(1);
                     }}
                     placeholder="Selecteer landen..."
@@ -553,14 +800,12 @@ export default function LeadDatabase() {
                     </div>
                   ) : (
                     <MultiSelect
-                      options={(filterOptions?.provinces || []).map(province => ({ value: province, label: province }))}
+                      options={(filteredLocationOptions?.provinces || []).map(province => ({ value: province, label: province }))}
                       value={selectedProvinces}
                       onChange={(values) => {
                         setSelectedProvinces(values);
                         // Reset stad when provincie changes
-                        if (values.length === 0) {
-                          setSelectedCities([]);
-                        }
+                        setSelectedCities([]);
                         setPage(1);
                       }}
                       placeholder="Selecteer provincies..."
@@ -587,7 +832,7 @@ export default function LeadDatabase() {
                     </div>
                   ) : (
                     <MultiSelect
-                      options={(filterOptions?.cities || []).map(city => ({ value: city, label: city }))}
+                      options={(filteredLocationOptions?.cities || []).map(city => ({ value: city, label: city }))}
                       value={selectedCities}
                       onChange={(values) => {
                         setSelectedCities(values);
@@ -620,7 +865,23 @@ export default function LeadDatabase() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Lead Database</h1>
-              <div className="text-sm text-gray-600 mt-1">{total} leads gevonden</div>
+              <div className="flex items-center gap-4 mt-1">
+                <div className="text-sm text-gray-600">{total} leads gevonden</div>
+                {selectedLeads.size > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                    <Users className="w-3 h-3 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-900">
+                      {selectedLeads.size} geselecteerd
+                    </span>
+                    <button
+                      onClick={() => setSelectedLeads(new Set())}
+                      className="text-blue-600 hover:text-blue-800 text-xs font-medium ml-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -643,8 +904,22 @@ export default function LeadDatabase() {
                 <Download className="w-4 h-4 mr-2" />
                 Exporteer
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                Converteren naar contacten
+              {selectedLeads.size > 0 && (
+                <Button 
+                  size="sm" 
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleConvertToContacts}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  {selectedLeads.size} Lead{selectedLeads.size > 1 ? 's' : ''} Converteren
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setShowConversionModal(true)}
+              >
+Smart Conversie
               </Button>
             </div>
           </div>
@@ -658,7 +933,21 @@ export default function LeadDatabase() {
                 <thead className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
                   <tr>
                     <th className="sticky left-0 z-30 w-[260px] xl:w-[300px] 2xl:w-[350px] px-4 py-2 bg-white text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-r border-gray-200">
-                      Contactpersoon
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={allCurrentPageSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              selectAllLeads();
+                            } else {
+                              deselectAllLeads();
+                            }
+                          }}
+                          className="h-4 w-4"
+                          data-indeterminate={someCurrentPageSelected && !allCurrentPageSelected}
+                        />
+                        <span>Contactpersoon</span>
+                      </div>
                     </th>
                     <th className="w-[200px] xl:w-[250px] 2xl:w-[300px] px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                       Functie
@@ -709,7 +998,11 @@ export default function LeadDatabase() {
                           {/* Contactpersoon - Sticky */}
                           <td className="sticky left-0 z-10 w-[260px] xl:w-[300px] 2xl:w-[350px] px-4 py-3 bg-white group-hover:bg-gray-50 border-r border-gray-200">
                             <div className="flex items-center gap-3">
-                              <input type="radio" name="contacts-select" className="h-4 w-4 text-primary" />
+                              <Checkbox
+                                checked={selectedLeads.has(contactId)}
+                                onCheckedChange={() => toggleLeadSelection(contactId)}
+                                className="h-4 w-4"
+                              />
                               <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center text-xs font-medium">
                                 {contact.domain ? (
                                   <img src={`https://logo.clearbit.com/${contact.domain}`} alt="logo" className="h-full w-full object-cover" />
@@ -819,6 +1112,566 @@ export default function LeadDatabase() {
           </div>
         </div>
       </div>
+
+      {/* Doelgroep Conversie Modal */}
+      <Dialog open={showConversionModal} onOpenChange={setShowConversionModal}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="px-6 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+Smart Conversie
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600">
+                Definieer je ideale klantprofiel en converteer de best passende leads.
+              </DialogDescription>
+              
+            </DialogHeader>
+          </div>
+
+          {/* Tabs Container */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2 mx-auto mt-4 max-w-lg flex-shrink-0">
+              <TabsTrigger value="direct" className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Direct Converteren
+              </TabsTrigger>
+              <TabsTrigger value="automation" className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Automatisering
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab Content */}
+            <TabsContent value="direct" className="flex-1 overflow-y-auto px-8 py-6 space-y-6 mt-0">
+              {/* Doelgroep Criteria */}
+              <div className="space-y-4">
+                {/* Rij 1: Functiegroepen + Aantal werknemers */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Functiegroepen</Label>
+                    <MultiSelect
+                      options={(filterOptions?.functionGroups || []).map(group => ({ value: group, label: group }))}
+                      value={targetFunctionGroups}
+                      onChange={setTargetFunctionGroups}
+                      placeholder="Selecteer..."
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Bedrijfsgrootte</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={audienceEmployeeMin}
+                        onChange={(e) => setAudienceEmployeeMin(parseInt(e.target.value) || 1)}
+                        className="h-9 text-sm"
+                      />
+                      <span className="text-xs text-gray-400">-</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={audienceEmployeeMax}
+                        onChange={(e) => setAudienceEmployeeMax(parseInt(e.target.value) || 1000)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rij 2: Branche + Subbranche */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Branches</Label>
+                    <MultiSelect
+                      options={(filteredIndustryOptions?.industries || []).map(industry => ({ value: industry, label: industry }))}
+                      value={targetIndustries}
+                      onChange={(values) => {
+                        setTargetIndustries(values);
+                        setSelectedSubindustries([]);
+                      }}
+                      placeholder="Selecteer branches..."
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Subbranches</Label>
+                    {targetIndustries.length === 0 ? (
+                      <div className="relative">
+                        <MultiSelect
+                          options={[]}
+                          value={[]}
+                          onChange={() => {}}
+                          placeholder="Eerst branche selecteren..."
+                          disabled={true}
+                        />
+                      </div>
+                    ) : (
+                      <MultiSelect
+                        options={(filteredIndustryOptions?.subindustries || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
+                        value={selectedSubindustries}
+                        onChange={setSelectedSubindustries}
+                        placeholder="Selecteer subbranches..."
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Rij 3: Land + Provincie */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Landen</Label>
+                    <MultiSelect
+                      options={(filteredLocationOptions?.countries || []).map(country => ({ value: country, label: country }))}
+                      value={targetCountries}
+                      onChange={(values) => {
+                        setTargetCountries(values);
+                        setSelectedProvinces([]);
+                        setSelectedCities([]);
+                      }}
+                      placeholder="Selecteer landen..."
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Provincies</Label>
+                    {targetCountries.length === 0 ? (
+                      <div className="relative">
+                        <MultiSelect
+                          options={[]}
+                          value={[]}
+                          onChange={() => {}}
+                          placeholder="Eerst land selecteren..."
+                          disabled={true}
+                        />
+                      </div>
+                    ) : (
+                      <MultiSelect
+                        options={(filteredLocationOptions?.provinces || []).map(province => ({ value: province, label: province }))}
+                        value={selectedProvinces}
+                        onChange={setSelectedProvinces}
+                        placeholder="Selecteer provincies..."
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            {/* Search Button */}
+            <div className="pt-2">
+              <Button
+                onClick={searchTargetAudience}
+                disabled={isSearching}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium"
+              >
+                {isSearching ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Zoeken naar matches...
+                  </div>
+                ) : (
+                  'Vind Passende Leads'
+                )}
+              </Button>
+            </div>
+
+            {/* Results Section - Simplified */}
+            {matchedLeads.length > 0 && (
+              <div className="space-y-4 pt-2 border-t border-gray-100">
+                {/* Match Summary Card */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {matchedLeads.length} Matches Gevonden
+                        </h3>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Kwaliteitsleads gerangschikt op match percentage
+                      </p>
+                    </div>
+                    
+                    {/* Amount Selector */}
+                    <div className="text-right">
+                      <Label className="text-xs font-medium text-gray-600 mb-1 block">Te converteren</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={matchedLeads.length}
+                        value={targetAmount === 0 ? '' : targetAmount}
+                        onChange={(e) => setTargetAmount(Math.min(parseInt(e.target.value) || 0, matchedLeads.length))}
+                        placeholder="0"
+                        className="w-16 h-8 text-sm text-center"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Match Quality Breakdown */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold text-gray-900">
+                      {matchedLeads.filter(l => l.score >= 80).length}
+                    </div>
+                    <div className="text-xs text-gray-600">Hoge match (80%+)</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold text-gray-900">
+                      {matchedLeads.filter(l => l.score >= 60 && l.score < 80).length}
+                    </div>
+                    <div className="text-xs text-gray-600">Goede match (60-80%)</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold text-gray-900">
+                      {matchedLeads.filter(l => l.score < 60).length}
+                    </div>
+                    <div className="text-xs text-gray-600">Basis match (&lt;60%)</div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </TabsContent>
+
+            <TabsContent value="automation" className="flex-1 overflow-y-auto px-8 py-6 space-y-6 mt-0">
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Automatische Lead Conversie</h3>
+                  <p className="text-sm text-gray-600">
+                    Stel dagelijkse automatische conversie in met doelgroep criteria
+                  </p>
+                </div>
+
+                {/* Doelgroep Criteria */}
+                <div className="space-y-4">
+                  {/* Rij 1: Functiegroepen + Aantal werknemers */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Functiegroepen</Label>
+                      <MultiSelect
+                        options={(filterOptions?.functionGroups || []).map(group => ({ value: group, label: group }))}
+                        value={targetFunctionGroups}
+                        onChange={setTargetFunctionGroups}
+                        placeholder="Selecteer..."
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Bedrijfsgrootte</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Min"
+                          value={audienceEmployeeMin}
+                          onChange={(e) => setAudienceEmployeeMin(parseInt(e.target.value) || 1)}
+                          className="h-9 text-sm"
+                        />
+                        <span className="text-xs text-gray-400">-</span>
+                        <Input
+                          type="number"
+                          placeholder="Max"
+                          value={audienceEmployeeMax}
+                          onChange={(e) => setAudienceEmployeeMax(parseInt(e.target.value) || 1000)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rij 2: Branche + Subbranche */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Branches</Label>
+                      <MultiSelect
+                        options={(filteredIndustryOptions?.industries || []).map(industry => ({ value: industry, label: industry }))}
+                        value={targetIndustries}
+                        onChange={(values) => {
+                          setTargetIndustries(values);
+                          setSelectedSubindustries([]);
+                        }}
+                        placeholder="Selecteer branches..."
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Subbranches</Label>
+                      {targetIndustries.length === 0 ? (
+                        <div className="relative">
+                          <MultiSelect
+                            options={[]}
+                            value={[]}
+                            onChange={() => {}}
+                            placeholder="Eerst branche selecteren..."
+                            disabled={true}
+                          />
+                        </div>
+                      ) : (
+                        <MultiSelect
+                          options={(filteredIndustryOptions?.subindustries || []).map(subindustry => ({ value: subindustry, label: subindustry }))}
+                          value={selectedSubindustries}
+                          onChange={setSelectedSubindustries}
+                          placeholder="Selecteer subbranches..."
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rij 3: Land + Provincie */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Landen</Label>
+                      <MultiSelect
+                        options={(filteredLocationOptions?.countries || []).map(country => ({ value: country, label: country }))}
+                        value={targetCountries}
+                        onChange={(values) => {
+                          setTargetCountries(values);
+                          setSelectedProvinces([]);
+                          setSelectedCities([]);
+                        }}
+                        placeholder="Selecteer landen..."
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-700">Provincies</Label>
+                      {targetCountries.length === 0 ? (
+                        <div className="relative">
+                          <MultiSelect
+                            options={[]}
+                            value={[]}
+                            onChange={() => {}}
+                            placeholder="Eerst land selecteren..."
+                            disabled={true}
+                          />
+                        </div>
+                      ) : (
+                        <MultiSelect
+                          options={(filteredLocationOptions?.provinces || []).map(province => ({ value: province, label: province }))}
+                          value={selectedProvinces}
+                          onChange={setSelectedProvinces}
+                          placeholder="Selecteer provincies..."
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Automatisering Instellingen */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-900">Automatisering</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-gray-700">Aantal per dag</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={dailyLimit}
+                          onChange={(e) => setDailyLimit(e.target.value === '' ? '' : parseInt(e.target.value))}
+                          className="h-9"
+                        />
+                        <span className="text-xs text-gray-500">leads</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-gray-700">Tijdstip</Label>
+                      <Input
+                        type="time"
+                        value={automationTime}
+                        onChange={(e) => setAutomationTime(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded p-3 mt-3">
+                    <p className="text-xs text-gray-600">
+                      Elke dag om <strong>{automationTime}</strong> worden automatisch de beste <strong>{dailyLimit || '[aantal]'} leads</strong> geconverteerd naar contacten.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bestaande Automations */}
+                {clientAutomations && clientAutomations.length > 0 && (
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <h4 className="text-sm font-medium text-gray-900">Actieve Automatiseringen</h4>
+                    <div className="space-y-2">
+                      {clientAutomations.map((automation) => (
+                        <div key={automation._id} className="flex items-center justify-between bg-gray-50 rounded p-2">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {automation.displayName}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {automation.dailyLimit} leads om {automation.executionTime} • 
+                              {automation.totalConverted} geconverteerd
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${automation.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                            <span className="text-xs text-gray-500">
+                              {automation.isActive ? 'Actief' : 'Inactief'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-8 py-6 bg-gray-50 border-t border-gray-100">
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowConversionModal(false);
+                  setMatchedLeads([]);
+                }}
+                className="flex-1"
+              >
+                Annuleren
+              </Button>
+              {activeTab === "direct" && matchedLeads.length > 0 && targetAmount > 0 && (
+                <Button
+                  onClick={convertSelectedAudience}
+                  disabled={isConverting}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400"
+                >
+                  {isConverting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Converteren...
+                    </div>
+                  ) : (
+                    `Converteer ${targetAmount} Lead${targetAmount > 1 ? 's' : ''}`
+                  )}
+                </Button>
+              )}
+              {activeTab === "automation" && (
+                <Button
+                  onClick={convertSelectedAudience}
+                  disabled={isConverting}
+                  className="flex-1 bg-gray-900 hover:bg-gray-800 text-white disabled:bg-gray-400"
+                >
+                  {isConverting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Instellen...
+                    </div>
+                  ) : (
+                    'Automatisering Activeren'
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Lead Conversion Modal */}
+      <Dialog open={showManualConversionModal} onOpenChange={setShowManualConversionModal}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="px-6 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-4 h-4 text-green-600" />
+                </div>
+                Leads Converteren naar Contacten
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600">
+                Geselecteerde leads converteren naar uw contactenlijst voor campagnes.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Content */}
+          <div className="px-8 py-8 space-y-6">
+            {/* Selection Summary */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <span className="text-lg font-bold text-green-600">{selectedLeads.size}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedLeads.size} Lead{selectedLeads.size > 1 ? 's' : ''} Geselecteerd
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Klaar voor conversie naar contacten
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white border rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center mt-0.5">
+                    <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-1">Na conversie</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Leads worden toegevoegd aan uw contactenlijst</li>
+                      <li>• Beschikbaar voor email en LinkedIn campagnes</li>
+                      <li>• Deze actie kan niet ongedaan gemaakt worden</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex-shrink-0 px-8 py-6 bg-gray-50 border-t border-gray-100">
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowManualConversionModal(false)}
+                className="flex-1"
+              >
+                Annuleren
+              </Button>
+              <Button
+                onClick={performConversion}
+                disabled={isConverting}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400"
+              >
+                {isConverting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Converteren...
+                  </div>
+                ) : (
+                  `${selectedLeads.size} Lead${selectedLeads.size > 1 ? 's' : ''} Converteren`
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

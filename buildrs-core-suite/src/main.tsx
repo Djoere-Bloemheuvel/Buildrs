@@ -15,6 +15,7 @@ import './styles/auth.card.override.css'
 import './styles/theme-premium-black.override.css'
 import './styles/clerk-override.css'
 import App from './App.tsx'
+import { Toaster } from 'react-hot-toast'
 
 const queryClient = new QueryClient()
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -32,6 +33,16 @@ createRoot(document.getElementById('root')!).render(
             <ThemeProvider>
               <BrowserRouter>
                 <App />
+                <Toaster 
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                    },
+                  }}
+                />
               </BrowserRouter>
             </ThemeProvider>
           </QueryClientProvider>

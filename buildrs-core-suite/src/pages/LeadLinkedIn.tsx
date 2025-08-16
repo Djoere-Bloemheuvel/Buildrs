@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation } from "convex/react"
+import { api } from "../../convex/_generated/api"
 import { useConvexAuth } from '@/hooks/useConvexAuth'
 import { useToast } from '@/hooks/use-toast'
 import PropositionSelect from '@/components/lead/PropositionSelect'
@@ -42,99 +44,27 @@ export default function LeadLinkedIn() {
     return Number.isFinite(n) && n > 0 ? n : 50;
   })
 
-  // Enhanced campaign fetching using li_campaigns table
-  const campaignsQuery = useQuery({
-    queryKey: ['li-campaigns', profile?.client_id, q],
-    queryFn: async () => {
-      let query = supabase
-        .from('li_campaigns')
-        .select(`
-          id,
-          name,
-          description,
-          status,
-          proposition_id,
-          client_id,
-          function_groups,
-          industries,
-          subindustries,
-          countries,
-          states,
-          company_size_min,
-          company_size_max,
-          connection_note_a,
-          connection_note_b,
-          message_a,
-          message_b,
-          followup_a,
-          followup_b,
-          daily_connect_limit,
-          daily_message_limit,
-          window_start,
-          window_end,
-          timezone,
-          sent_count,
-          accepted_count,
-          replied_count,
-          booked_count,
-          last_run_at,
-          created_at,
-          updated_at,
-          propositions(name, description)
-        `)
-        .order('created_at', { ascending: false })
-      
-      if (profile?.client_id) query = query.eq('client_id', profile.client_id)
-      if (q) query = query.ilike('name', `%${q}%`)
-      
-      const { data, error } = await query
-      if (error) throw error
-      
-      // Transform data to include calculated metrics
-      const campaignsWithMetrics = (data || []).map(campaign => {
-        const connection_rate = campaign.sent_count > 0 ? 
-          Math.round((campaign.accepted_count / campaign.sent_count) * 100 * 100) / 100 : 0
-        const response_rate = campaign.sent_count > 0 ? 
-          Math.round((campaign.replied_count / campaign.sent_count) * 100 * 100) / 100 : 0
-        const booking_rate = campaign.replied_count > 0 ? 
-          Math.round((campaign.booked_count / campaign.replied_count) * 100 * 100) / 100 : 0
-        
-        return {
-          ...campaign,
-          linkedin_metrics: {
-            connection_requests_sent: campaign.sent_count,
-            connection_requests_accepted: campaign.accepted_count,
-            new_connections: campaign.accepted_count,
-            messages_sent: campaign.sent_count,
-            replies_received: campaign.replied_count,
-            meetings_booked: campaign.booked_count,
-            leads_generated: Math.floor(campaign.booked_count * 0.7), // Estimate 70% of booked meetings become leads
-            connection_acceptance_rate: connection_rate,
-            response_rate: response_rate,
-            meeting_conversion_rate: booking_rate,
-            last_activity_at: campaign.last_run_at || campaign.updated_at
-          }
-        }
-      })
-      
-      return campaignsWithMetrics
-    },
-    enabled: !!profile?.client_id,
-    staleTime: 30_000,
-  })
+  // LinkedIn campaigns from Convex
+  const campaigns = useQuery(api.campaigns.list, 
+    profile?.client_id ? { 
+      clientId: profile.client_id as any,
+      type: "linkedin" 
+    } : "skip"
+  )
 
-  // Real aggregated stats from li_campaigns table
+  // Real aggregated stats from campaigns
   const aggregatedStats = useMemo(() => {
-    const campaigns: any[] = campaignsQuery.data ?? []
+    const campaignList = campaigns ?? []
     
-    const stats = campaigns.reduce((acc, campaign) => {
+    const stats = campaignList.reduce((acc, campaign) => {
+      const stats = campaign?.stats || {}
       return {
-        connection_requests_sent: acc.connection_requests_sent + (campaign.sent_count || 0),
-        new_connections: acc.new_connections + (campaign.accepted_count || 0),
-        messages_sent: acc.messages_sent + (campaign.sent_count || 0),
-        replies_received: acc.replies_received + (campaign.replied_count || 0),
-        meetings_booked: acc.meetings_booked + (campaign.booked_count || 0),
-        leads_generated: acc.leads_generated + Math.floor((campaign.booked_count || 0) * 0.7)
+        connection_requests_sent: acc.connection_requests_sent + (stats.sent_count || 0),
+        new_connections: acc.new_connections + (stats.accepted_count || 0),
+        messages_sent: acc.messages_sent + (stats.sent_count || 0),
+        replies_received: acc.replies_received + (stats.replied_count || 0),
+        meetings_booked: acc.meetings_booked + (stats.booked_count || 0),
+        leads_generated: acc.leads_generated + Math.floor((stats.booked_count || 0) * 0.7)
       }
     }, {
       connection_requests_sent: 0,
@@ -155,7 +85,7 @@ export default function LeadLinkedIn() {
       response_rate,
       connection_rate
     }
-  }, [campaignsQuery.data])
+  }, [campaigns])
 
   const industryOptions: MultiOption[] = [
     { label: 'Bouw, Installatie & Techniek', value: 'bouw-installatie' },
