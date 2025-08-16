@@ -4,14 +4,14 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 // ===============================
-// SMART CONVERSION AUTOMATION
+// SIMPLE SMART CONVERSION AUTOMATION
 // ===============================
 
-// Smart Conversion Automation Scheduler - runs every minute to check for scheduled automations
+// Simple Smart Conversion Automation - runs every 6 hours to process all active automations
 crons.interval(
-  "smart-conversion-automation",
-  { minutes: 1 }, // Check every minute for exact time matches
-  internal.smartConversionAutomation.processScheduledConversions
+  "simple-smart-conversion-automation", 
+  { hours: 6 }, // Run every 6 hours automatically
+  internal.simpleSmartConversion.runAllSmartConversions
 );
 
 // ===============================

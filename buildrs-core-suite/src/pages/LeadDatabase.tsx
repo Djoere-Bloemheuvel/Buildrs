@@ -148,8 +148,8 @@ export default function LeadDatabase() {
   const getTargetAudienceLeads = useMutation(api.exactLeadConversion.getExactMatchLeads);
   
   // Smart Conversion Automation mutations
-  const createSmartConversionAutomation = useMutation(api.smartConversionAutomation.createSmartConversionAutomation);
-  const smartConversionAutomations = useQuery(api.smartConversionAutomation.getSmartConversionAutomations, {
+  const createSmartConversionAutomation = useMutation(api.simpleSmartConversion.createSimpleSmartConversion);
+  const smartConversionAutomations = useQuery(api.simpleSmartConversion.getSmartConversions, {
     clientIdentifier: profile?.client_id || "",
   });
 
@@ -525,7 +525,6 @@ export default function LeadDatabase() {
         const result = await createSmartConversionAutomation({
           name: automationName.trim(),
           clientIdentifier: profile.client_id,
-          scheduledTime: automationTime,
           targetingCriteria: {
             functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
             industries: targetIndustries.length > 0 ? targetIndustries : undefined,
@@ -533,11 +532,11 @@ export default function LeadDatabase() {
             minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
             maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
           },
-          dailyLimit,
+          dailyLimit: parseInt(dailyLimit),
         });
 
         toast.success(
-          `🤖 "${automationName}" ingesteld: ${dailyLimit} leads/dag om ${automationTime}`,
+          `🤖 "${automationName}" ingesteld: ${dailyLimit} leads/dag (draait automatisch elke 6 uur)`,
           {
             style: {
               background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
@@ -561,7 +560,6 @@ export default function LeadDatabase() {
         setAudienceEmployeeMin(1);
         setAudienceEmployeeMax(1000);
         setDailyLimit('');
-        setAutomationTime("09:00");
         
       } catch (error) {
         console.error('Error creating Smart Conversion automation:', error);
