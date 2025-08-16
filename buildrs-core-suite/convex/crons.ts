@@ -7,10 +7,10 @@ const crons = cronJobs();
 // BULK CONVERT AUTOMATION
 // ===============================
 
-// Ultra simple bulk convert - runs every minute for testing
-crons.interval(
-  "bulk-convert-automation", 
-  { minutes: 1 }, // Run every minute for testing
+// Ultra simple bulk convert - runs once per day
+crons.daily(
+  "bulk-convert-automation",
+  { hourUTC: 9, minuteUTC: 0 }, // Run daily at 9:00 AM UTC (11:00 AM CET)
   internal.bulkConvert.runBulkConvert
 );
 

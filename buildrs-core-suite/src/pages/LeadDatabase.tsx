@@ -563,7 +563,7 @@ export default function LeadDatabase() {
         });
 
         toast.success(
-          `🤖 Bulk convert ingesteld: ${dailyLimit} leads/dag (draait automatisch elke minuut)`,
+          `🤖 Bulk convert ingesteld: ${dailyLimit} leads/dag (draait elke dag om 11:00)`,
           {
             style: {
               background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
@@ -1797,7 +1797,7 @@ Smart Conversie
 
                   <div className="bg-blue-50 rounded p-3 mt-3">
                     <p className="text-xs text-blue-700">
-                      🤖 Het systeem draait automatisch <strong>elke 6 uur</strong> en converteert de beste <strong>{dailyLimit || '[aantal]'} leads</strong> per dag naar contacten.
+                      🤖 Het systeem draait automatisch <strong>elke dag om 11:00</strong> en converteert de beste <strong>{dailyLimit || '[aantal]'} leads</strong> naar contacten.
                     </p>
                   </div>
                 </div>
