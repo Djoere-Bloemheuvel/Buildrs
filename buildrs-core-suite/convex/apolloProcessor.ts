@@ -1,6 +1,41 @@
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { cronJobs } from "convex/server";
+
+// Simple webhook configuration
+const N8N_WEBHOOK_URL = "https://djoere.app.n8n.cloud/webhook/2f17f67f-40b2-4f33-af4a-fc1de64f2e35";
+const BATCH_SIZE = 100;
+
+// Simple webhook function - no classes, no complexity
+async function sendWebhook(leads: Array<{id: string, jobTitle: string}>, clientId: string, batchNumber: number) {
+  const payload = {
+    type: "apollo_batch_processed",
+    batch_number: batchNumber,
+    leads_in_batch: leads.length,
+    client_id: clientId,
+    timestamp: Date.now(),
+    lead_ids: leads.map(l => l.id),
+    job_titles: leads.map(l => l.jobTitle),
+    message: `Batch ${batchNumber}: ${leads.length} leads processed`
+  };
+  
+  try {
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Webhook batch ${batchNumber} sent successfully`);
+    } else {
+      console.error(`❌ Webhook failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.error(`💥 Webhook error:`, error);
+  }
+}
 
 // Apollo.io data processor - replicates N8N workflow logic
 export const processApolloData = action({
@@ -17,8 +52,11 @@ export const processApolloData = action({
     message: v.string(),
   }),
   handler: async (ctx, { jsonlUrl, clientId }) => {
-    console.log("Fetching Apollo JSONL data...");
-    console.log("🆔 Received clientId:", clientId);
+    console.log("🚀 Starting Apollo data processing...");
+    
+    // Simple tracking variables
+    const processedLeads: Array<{id: string, jobTitle: string}> = [];
+    let batchNumber = 0;
     
     // Validate URL format
     try {
@@ -90,7 +128,6 @@ export const processApolloData = action({
     let filteredOut = 0;
     
     // 2. Process entries in BATCHES with ADVANCED ERROR RECOVERY & PROGRESS TRACKING
-    const BATCH_SIZE = 10; // Process 10 entries at a time
     const WAIT_TIME = 2000; // 2 seconds between batches to avoid rate limits
     const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
     const failedEntries: any[] = [];
@@ -116,6 +153,19 @@ export const processApolloData = action({
             contactsCreated++;
             if (processedContact.companyCreated) {
               companiesCreated++;
+            }
+            
+            // Only track if lead was created
+            if (processedContact.leadCreated && processedContact.leadId) {
+              const jobTitle = processedContact.jobTitle || 'Unknown';
+              
+              processedLeads.push({ id: processedContact.leadId, jobTitle });
+              
+              // Check if we should send webhook
+              if (processedLeads.length >= BATCH_SIZE) {
+                batchNumber++;
+                await sendWebhook(processedLeads.splice(0, BATCH_SIZE), clientId, batchNumber);
+              }
             }
           } else if (processedContact.action === 'duplicate') {
             duplicatesSkipped++;
@@ -155,6 +205,17 @@ export const processApolloData = action({
             if (processedContact.companyCreated) {
               companiesCreated++;
             }
+            
+            // Only track if lead was created in retry
+            if (processedContact.leadCreated && processedContact.leadId) {
+              processedLeads.push({ id: processedContact.leadId, jobTitle: processedContact.jobTitle || 'Unknown' });
+              
+              if (processedLeads.length >= BATCH_SIZE) {
+                batchNumber++;
+                await sendWebhook(processedLeads.splice(0, BATCH_SIZE), clientId, batchNumber);
+              }
+            }
+            
             retriedSuccessfully++;
           } else if (processedContact.action === 'duplicate') {
             duplicatesSkipped++;
@@ -177,6 +238,12 @@ export const processApolloData = action({
       console.log(`✅ Retry complete: ${retriedSuccessfully}/${failedEntries.length} recovered`);
     }
     
+    // Send any remaining leads
+    if (processedLeads.length > 0) {
+      batchNumber++;
+      await sendWebhook(processedLeads, clientId, batchNumber);
+    }
+    
     return {
       processed,
       contactsCreated,
@@ -185,6 +252,56 @@ export const processApolloData = action({
       filteredOut,
       message: `Processed ${processed} entries: ${contactsCreated} contacts created, ${companiesCreated} companies created, ${duplicatesSkipped} duplicates skipped, ${filteredOut} filtered out (no email/invalid website)`,
     };
+  },
+});
+
+// Simple webhook test
+export const testWebhookTracker = action({
+  args: {
+    clientId: v.string(),
+    testLeadCount: v.optional(v.number()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+    batchesSent: v.number(),
+  }),
+  handler: async (ctx, { clientId, testLeadCount = 12 }) => {
+    console.log("🧪 Testing simple webhook system...");
+    
+    try {
+      const testLeads: Array<{id: string, jobTitle: string}> = [];
+      let batchesSent = 0;
+      
+      // Create test leads with realistic lead IDs and send in batches
+      for (let i = 1; i <= testLeadCount; i++) {
+        testLeads.push({ id: `p5test${i.toString().padStart(3, '0')}lead${Date.now()}`, jobTitle: `Test Job ${i}` });
+        
+        if (testLeads.length >= BATCH_SIZE) {
+          batchesSent++;
+          await sendWebhook(testLeads.splice(0, BATCH_SIZE), clientId, batchesSent);
+        }
+      }
+      
+      // Send remaining
+      if (testLeads.length > 0) {
+        batchesSent++;
+        await sendWebhook(testLeads, clientId, batchesSent);
+      }
+      
+      return {
+        success: true,
+        message: `Test completed with ${batchesSent} batches sent`,
+        batchesSent,
+      };
+    } catch (error) {
+      console.error("🧪 Test failed:", error);
+      return {
+        success: false,
+        message: `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        batchesSent: 0,
+      };
+    }
   },
 });
 
@@ -542,31 +659,18 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
     console.log(`⚠️ No company created/linked for contact: ${contactData.firstName} ${contactData.lastName}`);
   }
   
-  // 6. Create contact met ALLE velden (normalize email)
-  const contactId = await ctx.runMutation(internal.apolloProcessor.createContact, {
-    firstName: contactData.firstName,
-    lastName: contactData.lastName,
-    email: contactData.email?.toLowerCase().trim(),
-    mobilePhone: contactData.mobilePhone,
-    linkedinUrl: contactData.linkedinUrl,
-    jobTitle: contactData.jobTitle,
-    seniority: contactData.seniority,
-    functionGroup: functionGroup,
-    country: contactData.country,
-    state: contactData.state,
-    city: contactData.city,
-    companyId: companyId,
-    clientId: clientId,
-    status: "cold",
-    isLinkedinConnected: false,
-    optedIn: false, // Default naar false
-  });
+  // 6. CREATE LEAD IN GLOBAL MARKETPLACE (NEW ARCHITECTURE)
+  console.log("📊 LEAD CREATION: Creating lead in global marketplace...");
+  let leadId = undefined;
+  let leadCreated = false;
   
-  // 7. 📊 KOPIEER CONTACT NAAR OPENBARE LEADS DATABASE (only if email exists)
   if (contactData.email) {
-    console.log("📊 Adding contact to public leads database...");
+    console.log("📊 LEAD EMAIL:", contactData.email);
+    console.log("📊 LEAD NAME:", contactData.firstName, contactData.lastName);
+    
     try {
-      await ctx.runMutation(internal.apolloProcessor.createLead, {
+      // Create lead in global marketplace (NOT client-specific)
+      leadId = await ctx.runMutation(internal.apolloProcessor.createLead, {
         companyId: companyId,
         firstName: contactData.firstName,
         lastName: contactData.lastName,
@@ -579,26 +683,32 @@ async function processApolloEntry(ctx: any, entry: any, clientId: string) {
         country: contactData.country,
         state: contactData.state,
         city: contactData.city,
-        originalContactId: contactId,
         sourceType: "apollo",
         isActive: true,
       });
-      console.log("✅ Contact added to public leads database");
+      leadCreated = true;
+      console.log("✅ LEAD CREATED: Lead added to global marketplace with ID:", leadId);
+      console.log("✅ MARKETPLACE: Lead is now available for purchase by any client");
+      
     } catch (error) {
-      console.error("❌ Failed to add contact to leads database:", error);
-      // Don't fail the whole process if leads creation fails
+      console.error("❌ LEAD FAILED: Failed to create lead in marketplace:", error);
+      // Don't fail the whole process - log error but continue
+      console.log("⚠️ CONTINUING: Process will continue without lead creation");
     }
   } else {
-    console.log("⚠️ Skipping leads database - no email provided");
+    console.log("⚠️ LEAD SKIPPED: No email provided - leads require email for marketplace");
   }
   
   return { 
     action: 'created', 
-    contactId, 
+    leadId,
     companyId, 
     companyCreated,
+    leadCreated,
+    jobTitle: contactData.jobTitle,
     functionGroup,
     websiteValid,
+    message: leadCreated ? "Lead successfully created in global marketplace" : "Lead creation failed or skipped",
   };
 }
 
@@ -1847,50 +1957,8 @@ export const createCompany = mutation({
   },
 });
 
-export const createContact = mutation({
-  args: {
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    email: v.optional(v.string()),
-    mobilePhone: v.optional(v.string()),
-    linkedinUrl: v.optional(v.string()),
-    jobTitle: v.optional(v.string()),
-    seniority: v.optional(v.string()),
-    functionGroup: v.optional(v.string()),
-    country: v.optional(v.string()),
-    state: v.optional(v.string()),
-    city: v.optional(v.string()),
-    companyId: v.optional(v.id("companies")),
-    clientId: v.string(),
-    status: v.string(),
-    isLinkedinConnected: v.optional(v.boolean()),
-    optedIn: v.optional(v.boolean()),
-  },
-  returns: v.id("contacts"),
-  handler: async (ctx, args) => {
-    const { clientId, companyId, ...contactData } = args;
-    
-    // Use clientId directly + insert ALL contact fields (normalize email)
-    return await ctx.db.insert("contacts", {
-      firstName: contactData.firstName,
-      lastName: contactData.lastName,
-      email: contactData.email?.toLowerCase().trim(),
-      mobilePhone: contactData.mobilePhone,
-      linkedinUrl: contactData.linkedinUrl,
-      jobTitle: contactData.jobTitle,
-      seniority: contactData.seniority,
-      functionGroup: contactData.functionGroup,
-      country: contactData.country,
-      state: contactData.state,
-      city: contactData.city,
-      status: contactData.status,
-      isLinkedinConnected: contactData.isLinkedinConnected,
-      optedIn: contactData.optedIn,
-      companyId,
-      clientId: clientId as any,
-    });
-  },
-});
+// createContact function removed - Apollo processor now only creates leads in marketplace
+// Contacts are created later through the purchaseLead mechanism when clients buy leads
 
 export const createLead = mutation({
   args: {
@@ -1948,6 +2016,184 @@ export const createLead = mutation({
       // Re-throw other errors
       throw error;
     }
+  },
+});
+
+// ===============================
+// FALLBACK CRONJOB - DAILY FUNCTION GROUP ENRICHMENT
+// ===============================
+
+// Daily fallback cronjob to enrich leads without function groups
+export const dailyFunctionGroupEnrichment = action({
+  args: {},
+  returns: v.object({
+    processed: v.number(),
+    batches_sent: v.number(),
+    leads_found: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx) => {
+    console.log("🔄 FALLBACK CRONJOB: Starting daily function group enrichment...");
+    
+    const MAX_LEADS = 500;
+    const now = Date.now();
+    
+    try {
+      // Get leads without function group (max 500)
+      const leadsWithoutFunctionGroup = await ctx.runQuery(internal.apolloProcessor.getLeadsWithoutFunctionGroup, {
+        limit: MAX_LEADS,
+      });
+      
+      if (leadsWithoutFunctionGroup.length === 0) {
+        console.log("✅ FALLBACK: No leads found without function group");
+        return {
+          processed: 0,
+          batches_sent: 0,
+          leads_found: 0,
+          message: "No leads found without function group - all leads are enriched",
+        };
+      }
+      
+      console.log(`📊 FALLBACK: Found ${leadsWithoutFunctionGroup.length} leads without function group`);
+      
+      // Send ALL leads in 1 single batch (regardless of count: 1, 29, 341, or 500)
+      console.log(`📤 FALLBACK: Sending ALL ${leadsWithoutFunctionGroup.length} leads to N8N in 1 batch...`);
+      
+      // leadsWithoutFunctionGroup already contains only _id and jobTitle
+      const leadsForWebhook = leadsWithoutFunctionGroup.map(lead => ({
+        id: lead._id,
+        jobTitle: lead.jobTitle || "Unknown"
+      }));
+      
+      // Send to N8N with EXACT same payload structure as Apollo import
+      await sendWebhook(leadsForWebhook, "fallback_system", 1); // Use original sendWebhook function!
+      
+      // Mark these leads as processed (update timestamp)
+      await ctx.runMutation(internal.apolloProcessor.markLeadsAsProcessed, {
+        leadIds: leadsWithoutFunctionGroup.map(lead => lead._id),
+        processedAt: now,
+      });
+      
+      console.log(`✅ FALLBACK COMPLETE: Processed ${leadsWithoutFunctionGroup.length} leads in 1 batch`);
+      
+      return {
+        processed: leadsWithoutFunctionGroup.length,
+        batches_sent: 1, // Always 1 batch now
+        leads_found: leadsWithoutFunctionGroup.length,
+        message: `Successfully sent ${leadsWithoutFunctionGroup.length} leads without function group to N8N for enrichment in 1 batch`,
+      };
+      
+    } catch (error) {
+      console.error("❌ FALLBACK ERROR:", error);
+      return {
+        processed: 0,
+        batches_sent: 0,
+        leads_found: 0,
+        message: `Fallback enrichment failed: ${error}`,
+      };
+    }
+  },
+});
+
+// sendWebhookFallback removed - using original sendWebhook function for exact same payload
+
+// Query to get leads without function group
+export const getLeadsWithoutFunctionGroup = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.object({
+    _id: v.id("leads"),
+    jobTitle: v.optional(v.string()),
+  })),
+  handler: async (ctx, { limit = 500 }) => {
+    console.log(`🔍 FALLBACK QUERY: Looking for leads without function group (MAXIMUM: ${limit})...`);
+    
+    // Get active leads without function group, ordered by oldest first
+    // MAXIMUM 500 leads regardless of what's available
+    const leads = await ctx.db
+      .query("leads")
+      .withIndex("by_function_group", (q) => q.eq("functionGroup", undefined))
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("isActive"), true), // Only active leads
+          q.neq(q.field("email"), ""), // Must have email
+          q.neq(q.field("jobTitle"), undefined) // Must have job title for enrichment
+        )
+      )
+      .order("asc") // Oldest first
+      .take(Math.min(limit, 500)); // Ensure MAXIMUM 500
+    
+    console.log(`📊 FALLBACK QUERY: Found ${leads.length} leads without function group`);
+    
+    // Return only the fields we need for the webhook
+    return leads.map(lead => ({
+      _id: lead._id,
+      jobTitle: lead.jobTitle,
+    }));
+  },
+});
+
+// Mutation to mark leads as processed
+export const markLeadsAsProcessed = mutation({
+  args: {
+    leadIds: v.array(v.id("leads")),
+    processedAt: v.number(),
+  },
+  returns: v.object({
+    updated: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { leadIds, processedAt }) => {
+    let updated = 0;
+    
+    for (const leadId of leadIds) {
+      try {
+        await ctx.db.patch(leadId, {
+          lastUpdatedAt: processedAt,
+          // Add a field to track that this lead was processed by fallback
+          lastFallbackProcessedAt: processedAt,
+        });
+        updated++;
+      } catch (error) {
+        console.error(`❌ Failed to update lead ${leadId}:`, error);
+      }
+    }
+    
+    console.log(`✅ FALLBACK: Marked ${updated} leads as processed`);
+    
+    return {
+      updated,
+      message: `Successfully marked ${updated} leads as processed`,
+    };
+  },
+});
+
+// ===============================
+// MANUAL TEST FUNCTIONS
+// ===============================
+
+// Manual test function to run fallback enrichment (for testing)
+export const testFallbackEnrichment = action({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    processed: v.number(),
+    batches_sent: v.number(),
+    leads_found: v.number(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { limit = 50 }) => {
+    console.log(`🧪 TEST FALLBACK: Running manual test with limit ${limit}...`);
+    
+    // Use smaller limit for testing
+    const testResult = await ctx.runAction(internal.apolloProcessor.dailyFunctionGroupEnrichment, {});
+    
+    return {
+      ...testResult,
+      message: `TEST COMPLETED: ${testResult.message}`,
+    };
   },
 });
 
