@@ -3,6 +3,21 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// ===============================
+// SMART CONVERSION AUTOMATION
+// ===============================
+
+// Smart Conversion Automation Scheduler - runs every minute to check for scheduled automations
+crons.interval(
+  "smart-conversion-automation",
+  { minutes: 1 }, // Check every minute for exact time matches
+  internal.smartConversionAutomation.processScheduledConversions
+);
+
+// ===============================
+// DATA ENRICHMENT
+// ===============================
+
 // Daily fallback cronjob to enrich leads without function groups
 // Runs every day at 02:00 AM (when N8N traffic is low)
 crons.daily(
