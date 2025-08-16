@@ -9,6 +9,11 @@ export const getEnrichedContacts = query({
     clientId: v.optional(v.string()),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.string()),
+    functionGroups: v.optional(v.array(v.string())),
+    industries: v.optional(v.array(v.string())),
+    subindustries: v.optional(v.array(v.string())),
+    locations: v.optional(v.array(v.string())),
+    maxEmployeeCount: v.optional(v.number()),
   },
   returns: v.object({
     data: v.array(v.object({
@@ -50,93 +55,149 @@ export const getEnrichedContacts = query({
       search = "",
       page = 1,
       pageSize = 25,
-      clientId,
-      sortBy = "created_at",
-      sortOrder = "desc"
+      functionGroups,
+      industries,
+      subindustries,
+      locations,
+      maxEmployeeCount,
     } = args;
 
-    // For now, return mock data that matches the expected structure
-    const mockContacts = [
-      {
-        id: "1",
-        contact_id: "c1",
-        first_name: "John",
-        last_name: "Doe",
-        email: "john.doe@example.com",
-        mobile_phone: "+31612345678",
-        status: "cold",
-        company_name: "Example Corp",
-        domain: "example.com",
-        website: "example.com",
-        linkedin_url: "https://linkedin.com/in/johndoe",
-        job_title: "Marketing Manager",
-        function_group: "Marketing Decision Makers",
-        industry: "Technology",
-        industry_label: "Software",
-        subindustry_label: "SaaS",
-        employee_count: 150,
-        company_size: 150,
-        city: "Amsterdam",
-        state: "Noord-Holland", 
-        country: "Netherlands",
-        company_city: "Amsterdam",
-        company_state: "Noord-Holland",
-        company_country: "Netherlands",
-        contact_city: "Amsterdam",
-        contact_state: "Noord-Holland", 
-        contact_country: "Netherlands"
-      },
-      {
-        id: "2",
-        contact_id: "c2",
-        first_name: "Jane",
-        last_name: "Smith", 
-        email: "jane.smith@techcorp.com",
-        mobile_phone: "+31687654321",
-        status: "warm",
-        company_name: "TechCorp",
-        domain: "techcorp.com",
-        website: "techcorp.com",
-        linkedin_url: "https://linkedin.com/in/janesmith",
-        job_title: "Sales Director",
-        function_group: "Sales Decision Makers",
-        industry: "Technology",
-        industry_label: "Technology",
-        subindustry_label: "Cloud Services",
-        employee_count: 500,
-        company_size: 500,
-        city: "Rotterdam",
-        state: "Zuid-Holland",
-        country: "Netherlands", 
-        company_city: "Rotterdam",
-        company_state: "Zuid-Holland",
-        company_country: "Netherlands",
-        contact_city: "Rotterdam",
-        contact_state: "Zuid-Holland",
-        contact_country: "Netherlands"
-      }
-    ];
+    // Get leads from the database with company data
+    const limit = 1000; // Get more leads for filtering
+    
+    let leadsQuery = ctx.db.query("leads");
+    
+    // Filter by active status
+    leadsQuery = leadsQuery.filter((q) => q.eq(q.field("isActive"), true));
+    
+    // Get leads
+    let leads = await leadsQuery
+      .order("desc")
+      .take(limit);
 
     // Apply search filter
-    let filteredContacts = mockContacts;
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredContacts = mockContacts.filter(contact => 
-        contact.first_name?.toLowerCase().includes(searchLower) ||
-        contact.last_name?.toLowerCase().includes(searchLower) ||
-        contact.company_name?.toLowerCase().includes(searchLower) ||
-        contact.job_title?.toLowerCase().includes(searchLower) ||
-        contact.email?.toLowerCase().includes(searchLower)
+      const term = search.toLowerCase();
+      leads = leads.filter(lead => 
+        (lead.firstName?.toLowerCase().includes(term)) ||
+        (lead.lastName?.toLowerCase().includes(term)) ||
+        (lead.email?.toLowerCase().includes(term)) ||
+        (lead.jobTitle?.toLowerCase().includes(term))
       );
     }
 
-    // Calculate pagination
-    const total = filteredContacts.length;
+    // Apply function group filter
+    if (functionGroups && functionGroups.length > 0) {
+      leads = leads.filter(lead => 
+        lead.functionGroup && functionGroups.includes(lead.functionGroup)
+      );
+    }
+
+    // Apply location filter (country-based for now)
+    if (locations && locations.length > 0) {
+      leads = leads.filter(lead => {
+        if (!lead.country) return false;
+        return locations.some(location => 
+          location.includes(lead.country!) || lead.country!.includes(location)
+        );
+      });
+    }
+
+    // Enrich with company data and apply company-based filters
+    const enrichedLeads = await Promise.all(
+      leads.map(async (lead) => {
+        let companyData = {
+          companyName: undefined,
+          companyDomain: undefined,
+          companyWebsite: undefined,
+          companyIndustry: undefined,
+          companySubindustry: undefined,
+          companySize: undefined,
+          companyCountry: undefined,
+          companyCity: undefined,
+          companyState: undefined,
+        };
+        
+        if (lead.companyId) {
+          const company = await ctx.db.get(lead.companyId);
+          if (company) {
+            companyData = {
+              companyName: company.name,
+              companyDomain: company.domain,
+              companyWebsite: company.website,
+              companyIndustry: company.industryLabel,
+              companySubindustry: company.subindustryLabel,
+              companySize: company.companySize,
+              companyCountry: company.country,
+              companyCity: company.city,
+              companyState: company.state,
+            };
+          }
+        }
+        
+        // Transform to match expected interface
+        return {
+          id: lead._id,
+          contact_id: lead._id, // Use lead ID as contact_id
+          first_name: lead.firstName,
+          last_name: lead.lastName,
+          email: lead.email,
+          mobile_phone: lead.mobilePhone,
+          status: "cold", // Default status for leads
+          company_name: companyData.companyName,
+          domain: companyData.companyDomain,
+          website: companyData.companyWebsite,
+          linkedin_url: lead.linkedinUrl,
+          job_title: lead.jobTitle,
+          function_group: lead.functionGroup,
+          industry: companyData.companyIndustry,
+          industry_label: companyData.companyIndustry,
+          subindustry_label: companyData.companySubindustry,
+          employee_count: companyData.companySize,
+          company_size: companyData.companySize,
+          city: lead.city,
+          state: lead.state,
+          country: lead.country,
+          company_city: companyData.companyCity,
+          company_state: companyData.companyState,
+          company_country: companyData.companyCountry,
+          contact_city: lead.city,
+          contact_state: lead.state,
+          contact_country: lead.country,
+        };
+      })
+    );
+
+    // Apply industry filters (after company join)
+    let filteredLeads = enrichedLeads;
+    
+    if (industries && industries.length > 0) {
+      filteredLeads = filteredLeads.filter(lead => 
+        lead.industry_label && industries.includes(lead.industry_label)
+      );
+    }
+
+    if (subindustries && subindustries.length > 0) {
+      filteredLeads = filteredLeads.filter(lead => 
+        lead.subindustry_label && subindustries.includes(lead.subindustry_label)
+      );
+    }
+
+    // Apply employee count filter
+    if (maxEmployeeCount && maxEmployeeCount > 0) {
+      filteredLeads = filteredLeads.filter(lead => {
+        const size = lead.company_size || lead.employee_count || 0;
+        return size <= maxEmployeeCount;
+      });
+    }
+
+    // Apply pagination
+    const total = filteredLeads.length;
     const offset = (page - 1) * pageSize;
-    const paginatedContacts = filteredContacts.slice(offset, offset + pageSize);
+    const paginatedLeads = filteredLeads.slice(offset, offset + pageSize);
 
     return {
-      data: paginatedContacts,
+      data: paginatedLeads,
       count: total,
       page,
       pageSize,
@@ -154,46 +215,49 @@ export const getFilterOptions = query({
     locations: v.array(v.string()),
   }),
   handler: async (ctx) => {
-    // Return mock filter options
+    // Get real data from leads and companies
+    const leads = await ctx.db
+      .query("leads")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .take(1000);
+
+    const companies = await ctx.db.query("companies").take(1000);
+
+    // Extract unique values
+    const functionGroups = new Set<string>();
+    const industryLabels = new Set<string>();
+    const subindustryLabels = new Set<string>();
+    const locations = new Set<string>();
+
+    // Process leads
+    leads.forEach(lead => {
+      if (lead.functionGroup) functionGroups.add(lead.functionGroup);
+      if (lead.country) {
+        locations.add(lead.country);
+        if (lead.city) {
+          locations.add(`${lead.city}, ${lead.country}`);
+        }
+      }
+    });
+
+    // Process companies
+    companies.forEach(company => {
+      if (company.industryLabel) industryLabels.add(company.industryLabel);
+      if (company.subindustryLabel) subindustryLabels.add(company.subindustryLabel);
+      if (company.country) {
+        locations.add(company.country);
+        if (company.city) {
+          locations.add(`${company.city}, ${company.country}`);
+        }
+      }
+    });
+
+    // Convert sets to sorted arrays
     return {
-      functionGroups: [
-        "Marketing Decision Makers",
-        "Sales Decision Makers", 
-        "IT Decision Makers",
-        "Finance Decision Makers",
-        "HR Decision Makers",
-        "Operations Decision Makers"
-      ],
-      industryLabels: [
-        "Technology",
-        "Software", 
-        "Healthcare",
-        "Financial Services",
-        "Manufacturing",
-        "Retail",
-        "Education",
-        "Professional Services"
-      ],
-      subindustryLabels: [
-        "SaaS",
-        "Cloud Services",
-        "Cybersecurity",
-        "E-commerce",
-        "Fintech",
-        "Healthcare IT",
-        "EdTech",
-        "Consulting"
-      ],
-      locations: [
-        "Netherlands",
-        "Amsterdam, Netherlands",
-        "Rotterdam, Netherlands", 
-        "Utrecht, Netherlands",
-        "Den Haag, Netherlands",
-        "Eindhoven, Netherlands",
-        "Tilburg, Netherlands",
-        "Groningen, Netherlands"
-      ]
+      functionGroups: Array.from(functionGroups).sort(),
+      industryLabels: Array.from(industryLabels).sort(),
+      subindustryLabels: Array.from(subindustryLabels).sort(),
+      locations: Array.from(locations).sort(),
     };
   },
 });
