@@ -85,10 +85,22 @@ export const createClientAutomation = mutation({
     executionTime: v.string(),
   },
   handler: async (ctx, args) => {
+    // VALIDATION: Ensure client exists
+    const clientExists = await ctx.db
+      .query("clients")
+      .filter((q) => q.eq(q.field("_id"), args.clientId as any))
+      .first();
+    
+    if (!clientExists) {
+      throw new Error(`Client with ID ${args.clientId} does not exist. Use a valid client ID from the clients table.`);
+    }
+    
+    console.log(`✅ Creating automation for verified client: ${clientExists.name} (${args.clientId})`);
+    
     const now = Date.now();
     
     return await ctx.db.insert("clientAutomations", {
-      clientId: args.clientId, // Now schema accepts strings
+      clientId: args.clientId,
       templateId: args.templateId,
       customName: args.customName,
       isActive: true,

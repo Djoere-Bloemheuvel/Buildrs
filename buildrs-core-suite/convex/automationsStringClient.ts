@@ -22,19 +22,37 @@ export const createClientAutomationWithStringId = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
-    // Find the actual client by domain or fallback to first client
-    let actualClient = await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("domain"), args.clientIdentifier))
-      .first();
-
+    // Find client by identifier (could be _id, domain, email, or name) - NO FALLBACK!
+    let actualClient = null;
+    
+    // First try as direct Convex ID
+    try {
+      actualClient = await ctx.db.get(args.clientIdentifier as any);
+      console.log(`✅ Found client by ID: ${actualClient?.name} (${args.clientIdentifier})`);
+    } catch (error) {
+      console.log(`🔍 Client identifier ${args.clientIdentifier} is not a valid Convex ID, trying other fields...`);
+    }
+    
+    // If not found by ID, try by domain
     if (!actualClient) {
-      // Fallback to first client for testing
-      actualClient = await ctx.db.query("clients").first();
+      actualClient = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), args.clientIdentifier))
+        .first();
+      if (actualClient) console.log(`✅ Found client by domain: ${actualClient.name}`);
+    }
+    
+    // If not found by domain, try by email
+    if (!actualClient) {
+      actualClient = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("email"), args.clientIdentifier))
+        .first();
+      if (actualClient) console.log(`✅ Found client by email: ${actualClient.name}`);
     }
 
     if (!actualClient) {
-      throw new Error(`No clients found in database`);
+      throw new Error(`Client with identifier ${args.clientIdentifier} does not exist - NO FALLBACK ALLOWED`);
     }
 
     console.log(`Creating automation for client: ${actualClient._id} (${actualClient.domain})`);
@@ -64,18 +82,37 @@ export const getClientAutomationsWithStringId = query({
     clientIdentifier: v.string(),
   },
   handler: async (ctx, args) => {
-    // Find the actual client by domain or fallback to first client
-    let actualClient = await ctx.db
-      .query("clients")
-      .filter((q) => q.eq(q.field("domain"), args.clientIdentifier))
-      .first();
-
+    // Find client by identifier (could be _id, domain, email, or name) - NO FALLBACK!
+    let actualClient = null;
+    
+    // First try as direct Convex ID
+    try {
+      actualClient = await ctx.db.get(args.clientIdentifier as any);
+      console.log(`✅ Found client by ID for query: ${actualClient?.name} (${args.clientIdentifier})`);
+    } catch (error) {
+      console.log(`🔍 Client identifier ${args.clientIdentifier} is not a valid Convex ID, trying other fields...`);
+    }
+    
+    // If not found by ID, try by domain
     if (!actualClient) {
-      // Fallback to first client for testing
-      actualClient = await ctx.db.query("clients").first();
+      actualClient = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("domain"), args.clientIdentifier))
+        .first();
+      if (actualClient) console.log(`✅ Found client by domain for query: ${actualClient.name}`);
+    }
+    
+    // If not found by domain, try by email
+    if (!actualClient) {
+      actualClient = await ctx.db
+        .query("clients")
+        .filter((q) => q.eq(q.field("email"), args.clientIdentifier))
+        .first();
+      if (actualClient) console.log(`✅ Found client by email for query: ${actualClient.name}`);
     }
 
     if (!actualClient) {
+      console.error(`❌ Client with identifier ${args.clientIdentifier} does not exist - returning empty array`);
       return [];
     }
 

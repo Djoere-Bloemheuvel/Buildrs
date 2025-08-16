@@ -82,9 +82,9 @@ type Campaign = {
 };
 
 export default function LeadABM() {
-  const { user } = useConvexAuth();
-  // Mock profile data
-  const profile = { client_id: 'client-1' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const profile = { client_id: getClientId() };
   const { toast } = useToast();
   const qc = useQueryClient();
 

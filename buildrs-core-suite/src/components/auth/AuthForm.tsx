@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useSignIn, useSignUp } from '@clerk/clerk-react'
+import { useSignIn, useSignUp, SignIn, SignUp } from '@clerk/clerk-react'
 import { toast } from 'sonner'
 import { Loader2, Brain, Sparkles } from 'lucide-react'
 import { PricingCard } from '@/components/stripe/PricingCard'
@@ -14,6 +14,7 @@ export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [useClerkComponents, setUseClerkComponents] = useState(false)
   const { signIn, setActive } = useSignIn()
   const { signUp, setActive: setActiveSignUp } = useSignUp()
 
@@ -74,38 +75,56 @@ export function AuthForm() {
   }
 
   const handleGoogleAuth = async () => {
-    if (!signIn) return
-    
     setIsGoogleLoading(true)
     
     try {
-      // Use redirect method with correct URLs
-      await signIn.authenticateWithRedirect({
-        strategy: 'oauth_google',
-        redirectUrl: `${window.location.origin}/`,
-        redirectUrlComplete: `${window.location.origin}/`
-      })
-      
-      // The redirect will happen automatically, so we won't reach this point
+      // Try signIn first for existing users
+      if (signIn) {
+        await signIn.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: `${window.location.origin}/`,
+          redirectUrlComplete: `${window.location.origin}/`
+        })
+      } else if (signUp) {
+        // Fallback to signUp for new users
+        await signUp.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: `${window.location.origin}/`,
+          redirectUrlComplete: `${window.location.origin}/`
+        })
+      }
     } catch (error: any) {
       console.error('Google auth error:', error)
       
-      // More specific error handling
+      // If signIn fails because user doesn't exist, try signUp
+      if (error.errors && error.errors.some((e: any) => e.code === 'form_identifier_not_found')) {
+        try {
+          if (signUp) {
+            await signUp.authenticateWithRedirect({
+              strategy: 'oauth_google',
+              redirectUrl: `${window.location.origin}/`,
+              redirectUrlComplete: `${window.location.origin}/`
+            })
+            return
+          }
+        } catch (signUpError: any) {
+          console.error('Google signUp also failed:', signUpError)
+        }
+      }
+      
       if (error.errors && error.errors.length > 0) {
         const errorCode = error.errors[0].code
         const errorMessage = error.errors[0].message
         
         if (errorCode === 'oauth_provider_not_enabled') {
-          toast.error('Google authenticatie is nog niet ingeschakeld in Clerk dashboard.')
+          toast.error('Google OAuth moet eerst ingeschakeld worden in Clerk dashboard.')
         } else if (errorCode === 'oauth_access_denied') {
           toast.error('Google authenticatie geweigerd.')
-        } else if (errorCode === 'identifier_already_exists') {
-          toast.error('Account bestaat al. Log eerst in met email/wachtwoord en koppel dan Google in je profiel.')
         } else {
           toast.error(`Google authenticatie fout: ${errorMessage}`)
         }
       } else {
-        toast.error('Google authenticatie mislukt. Probeer email/wachtwoord.')
+        toast.error('Google authenticatie mislukt. Probeer het opnieuw.')
       }
       
       setIsGoogleLoading(false)

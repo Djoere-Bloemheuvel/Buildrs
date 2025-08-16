@@ -192,8 +192,8 @@ async function executeLeadConversion(
       employeeMax: automation.targetEmployeeMax,
     };
 
-    // Get leads using existing function
-    const targetResult = await ctx.runMutation("leadConversion:getTargetAudienceLeads", {
+    // Get leads using NEW EXACT MATCHING function
+    const targetResult = await ctx.runMutation("exactLeadConversion:getExactMatchLeads", {
       functionGroups: criteria.functionGroups,
       industries: criteria.industries,
       countries: criteria.countries,
@@ -212,7 +212,13 @@ async function executeLeadConversion(
         leadsConverted: 0,
         creditsUsed: 0,
         executionDetails: {
-          criteria,
+          criteria: {
+            targetFunctionGroups: criteria.functionGroups,
+            targetIndustries: criteria.industries,
+            targetCountries: criteria.countries,
+            targetEmployeeMin: criteria.employeeMin,
+            targetEmployeeMax: criteria.employeeMax,
+          },
           searchResults: {
             totalMatched: targetResult.totalMatches || 0,
             filtered: 0,
@@ -223,9 +229,9 @@ async function executeLeadConversion(
       };
     }
 
-    // Convert the leads
+    // Convert the leads using NEW EXACT CONVERSION function
     const leadIds = leadsToConvert.map(lead => lead.leadId);
-    const conversionResult = await ctx.runMutation("leadConversion:convertLeadsToContacts", {
+    const conversionResult = await ctx.runMutation("exactLeadConversion:convertExactMatchLeads", {
       leadIds: leadIds as any[],
       clientIdentifier: automation.clientId,
     });
@@ -238,7 +244,13 @@ async function executeLeadConversion(
       errorMessage: conversionResult.success ? undefined : conversionResult.errors?.join(", "),
       errorCode: conversionResult.success ? undefined : "CONVERSION_FAILED",
       executionDetails: {
-        criteria,
+        criteria: {
+          targetFunctionGroups: criteria.functionGroups,
+          targetIndustries: criteria.industries,
+          targetCountries: criteria.countries,
+          targetEmployeeMin: criteria.employeeMin,
+          targetEmployeeMax: criteria.employeeMax,
+        },
         searchResults: {
           totalMatched: targetResult.totalMatches || 0,
           filtered: leadsToConvert.length,

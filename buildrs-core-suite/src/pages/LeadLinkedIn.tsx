@@ -18,9 +18,9 @@ import LinkedInStatsGrid from '@/components/linkedin/LinkedInStatsGrid'
 import { MultiSelect, type MultiOption } from '@/components/ui/MultiSelect'
 
 export default function LeadLinkedIn() {
-  const { user } = useConvexAuth()
-  // Mock profile data
-  const profile = { client_id: 'client-1' }
+  const { user, getClientId } = useConvexAuth()
+  // Use real client ID from authenticated user
+  const profile = { client_id: getClientId() };
   const { toast } = useToast()
   const navigate = useNavigate()
 

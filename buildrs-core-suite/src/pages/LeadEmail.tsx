@@ -19,9 +19,9 @@ import { MultiSelect, type MultiOption } from '@/components/ui/MultiSelect';
 import PropositionSelect from '@/components/lead/PropositionSelect';
 
 export default function LeadEmail() {
-  const { user } = useConvexAuth();
-  // Mock profile data
-  const profile = { client_id: 'client-1' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const profile = { client_id: getClientId() };
   const { toast } = useToast();
   const navigate = useNavigate();
   const [openNew, setOpenNew] = useState(false);

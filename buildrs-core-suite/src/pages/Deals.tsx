@@ -103,9 +103,9 @@ const Deals = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { user } = useConvexAuth();
-  // Mock profile data until Convex is available
-  const profile = { id: 'user-1', client_id: 'client-1', role: 'admin' };
+  const { user, getClientId } = useConvexAuth();
+  // Use real client ID from authenticated user
+  const profile = { id: 'user-1', client_id: getClientId(), role: 'admin' };
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
