@@ -341,7 +341,7 @@ export const createSimpleSmartConversion = mutation({
         message: `Smart Conversion automation "${args.name}" updated successfully`
       };
     } else {
-      // Create new automation using existing schema with ALL required fields
+      // Create new automation using existing schema with ONLY required fields
       const now = Date.now();
       const automationId = await ctx.db.insert("clientAutomations", {
         clientId: clientId,
@@ -354,8 +354,7 @@ export const createSimpleSmartConversion = mutation({
         totalConverted: 0, // Required field
         createdAt: now, // Required field
         updatedAt: now, // Required field
-        totalExecutions: 0, // Optional but good to set
-        totalLeadsConverted: 0 // Optional but good to set
+        // Remove totalLeadsConverted - not in schema!
       });
 
       console.log(`✅ Created new Smart Conversion automation: ${args.name}`);

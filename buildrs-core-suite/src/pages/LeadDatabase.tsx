@@ -103,9 +103,25 @@ function getStatusColor(status: string) {
 
 export default function LeadDatabase() {
   const [search, setSearch] = useState<string>('');
-  const { user, getClientId } = useConvexAuth();
+  const { user, getClientId, isAuthenticated } = useConvexAuth();
+  
   // Use real client ID from authenticated user
-  const profile = { client_id: getClientId() };
+  const clientId = getClientId();
+  const profile = { client_id: clientId };
+  
+  // Helper function to get client identifier with fallback
+  const getClientIdentifier = () => {
+    return clientId || user?.email || "";
+  };
+  
+  // Debug logging
+  console.log('LeadDatabase auth state:', {
+    isAuthenticated,
+    user: !!user,
+    clientId,
+    userEmail: user?.email,
+    finalIdentifier: getClientIdentifier()
+  });
 
   // Filter states
   const [selectedFunctionGroups, setSelectedFunctionGroups] = useState<string[]>([]);
@@ -149,7 +165,7 @@ export default function LeadDatabase() {
   // Smart Conversion Automation mutations
   const createSmartConversionAutomation = useMutation(api.simpleSmartConversion.createSimpleSmartConversion);
   const smartConversionAutomations = useQuery(api.simpleSmartConversion.getSmartConversions, {
-    clientIdentifier: profile?.client_id || "",
+    clientIdentifier: getClientIdentifier(),
   });
 
   // Filter panel states
@@ -307,7 +323,7 @@ export default function LeadDatabase() {
       const leadIdsArray = Array.from(selectedLeads);
       const result = await convertLeadsToContacts({
         leadIds: leadIdsArray as any[], // Type assertion needed for Convex ID type
-        clientIdentifier: profile.client_id, // Using string identifier
+        clientIdentifier: getClientIdentifier(), // Using string identifier
       });
 
       if (result.success) {
@@ -419,7 +435,7 @@ export default function LeadDatabase() {
         minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
         maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
         maxResults: 1000,
-        clientIdentifier: profile.client_id,
+        clientIdentifier: getClientIdentifier(),
       });
 
       // Map exact lead data to expected format
@@ -524,18 +540,21 @@ export default function LeadDatabase() {
         // Debug logging
         console.log('Creating Smart Conversion with:', {
           name: automationName.trim(),
-          clientIdentifier: profile.client_id,
+          clientIdentifier: getClientIdentifier(),
           user: user,
           userEmail: user?.primaryEmailAddress?.emailAddress
         });
 
-        if (!profile.client_id) {
-          throw new Error('Geen client ID gevonden. Probeer opnieuw in te loggen.');
+        // Use client ID or fall back to user email
+        const clientIdentifier = getClientIdentifier();
+        
+        if (!clientIdentifier) {
+          throw new Error('Geen client ID of email gevonden. Probeer opnieuw in te loggen.');
         }
 
         const result = await createSmartConversionAutomation({
           name: automationName.trim(),
-          clientIdentifier: profile.client_id,
+          clientIdentifier: clientIdentifier,
           targetingCriteria: {
             functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
             industries: targetIndustries.length > 0 ? targetIndustries : undefined,
@@ -606,7 +625,7 @@ export default function LeadDatabase() {
       const leadIds = leadsToConvert.map(lead => lead.leadId);
       const result = await convertLeadsToContacts({
         leadIds: leadIds as any[],
-        clientIdentifier: profile.client_id,
+        clientIdentifier: getClientIdentifier(),
       });
 
       if (result.success) {
