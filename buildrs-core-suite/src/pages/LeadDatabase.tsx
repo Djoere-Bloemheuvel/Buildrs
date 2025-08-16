@@ -147,10 +147,9 @@ export default function LeadDatabase() {
   const convertLeadsToContacts = useMutation(api.exactLeadConversion.convertExactMatchLeads);
   const getTargetAudienceLeads = useMutation(api.exactLeadConversion.getExactMatchLeads);
   
-  // Automation mutations
-  const createClientAutomation = useMutation(api.automationsStringClient.createClientAutomationWithStringId);
-  const automationTemplates = useQuery(api.automations.getAutomationTemplates);
-  const clientAutomations = useQuery(api.automationsStringClient.getClientAutomationsWithStringId, {
+  // Smart Conversion Automation mutations
+  const createSmartConversionAutomation = useMutation(api.smartConversionAutomation.createSmartConversionAutomation);
+  const smartConversionAutomations = useQuery(api.smartConversionAutomation.getSmartConversionAutomations, {
     clientIdentifier: profile?.client_id || "",
   });
 
@@ -481,18 +480,7 @@ export default function LeadDatabase() {
 
   const convertSelectedAudience = async () => {
     if (activeTab === "automation") {
-      // Create automation for client
-      if (!automationTemplates || automationTemplates.length === 0) {
-        toast.error('Geen automation templates beschikbaar');
-        return;
-      }
-
-      // Use the basic template by default
-      const basicTemplate = automationTemplates.find(t => t.key === "lead-conversion-basic");
-      if (!basicTemplate) {
-        toast.error('Basic automation template niet gevonden');
-        return;
-      }
+      // Create Smart Conversion automation
 
       if (!automationName.trim()) {
         toast.error(
@@ -534,17 +522,18 @@ export default function LeadDatabase() {
 
       try {
         setIsConverting(true);
-        const automationId = await createClientAutomation({
+        const result = await createSmartConversionAutomation({
+          name: automationName.trim(),
           clientIdentifier: profile.client_id,
-          templateId: basicTemplate._id,
-          customName: automationName.trim(),
-          targetFunctionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
-          targetIndustries: targetIndustries.length > 0 ? targetIndustries : undefined,
-          targetCountries: targetCountries.length > 0 ? targetCountries : undefined,
-          targetEmployeeMin: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
-          targetEmployeeMax: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
+          scheduledTime: automationTime,
+          targetingCriteria: {
+            functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
+            industries: targetIndustries.length > 0 ? targetIndustries : undefined,
+            countries: targetCountries.length > 0 ? targetCountries : undefined,
+            minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
+            maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
+          },
           dailyLimit,
-          executionTime: automationTime,
         });
 
         toast.success(
@@ -575,7 +564,7 @@ export default function LeadDatabase() {
         setAutomationTime("09:00");
         
       } catch (error) {
-        console.error('Error creating automation:', error);
+        console.error('Error creating Smart Conversion automation:', error);
         toast.error(
           `⚙️ Fout bij aanmaken automatisering: ${error.message}`,
           {
@@ -1797,20 +1786,20 @@ Smart Conversie
                   </div>
                 </div>
 
-                {/* Bestaande Automations */}
-                {clientAutomations && clientAutomations.length > 0 && (
+                {/* Bestaande Smart Conversion Automations */}
+                {smartConversionAutomations && smartConversionAutomations.length > 0 && (
                   <div className="border rounded-lg p-4 space-y-3">
-                    <h4 className="text-sm font-medium text-gray-900">Actieve Automatiseringen</h4>
+                    <h4 className="text-sm font-medium text-gray-900">Actieve Smart Conversion Automatiseringen</h4>
                     <div className="space-y-2">
-                      {clientAutomations.map((automation) => (
+                      {smartConversionAutomations.map((automation) => (
                         <div key={automation._id} className="flex items-center justify-between bg-gray-50 rounded p-2">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {automation.displayName}
+                              {automation.name}
                             </div>
                             <div className="text-xs text-gray-600">
-                              {automation.dailyLimit} leads om {automation.executionTime} • 
-                              {automation.totalConverted} geconverteerd
+                              {automation.dailyLimit} leads om {automation.scheduledTime} • 
+                              {automation.totalLeadsConverted || 0} geconverteerd
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
