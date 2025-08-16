@@ -162,11 +162,8 @@ export default function LeadDatabase() {
   const convertLeadsToContacts = useMutation(api.exactLeadConversion.convertExactMatchLeads);
   const getTargetAudienceLeads = useMutation(api.exactLeadConversion.getExactMatchLeads);
   
-  // Smart Conversion Automation mutations
-  const createSmartConversionAutomation = useMutation(api.simpleSmartConversion.createSimpleSmartConversion);
-  const smartConversionAutomations = useQuery(api.simpleSmartConversion.getSmartConversions, {
-    clientIdentifier: getClientIdentifier(),
-  });
+  // Simple Bulk Convert mutation
+  const setBulkConvertSettings = useMutation(api.bulkConvert.setBulkConvertSettings);
 
   // Filter panel states
   const [functionGroupOpen, setFunctionGroupOpen] = useState(false);
@@ -545,28 +542,28 @@ export default function LeadDatabase() {
           userEmail: user?.primaryEmailAddress?.emailAddress
         });
 
-        // Use client ID or fall back to user email
+        // Ultra simple bulk convert setup
         const clientIdentifier = getClientIdentifier();
         
         if (!clientIdentifier) {
           throw new Error('Geen client ID of email gevonden. Probeer opnieuw in te loggen.');
         }
 
-        const result = await createSmartConversionAutomation({
-          name: automationName.trim(),
+        await setBulkConvertSettings({
           clientIdentifier: clientIdentifier,
+          dailyLimit: parseInt(dailyLimit),
+          isEnabled: true,
           targetingCriteria: {
             functionGroups: targetFunctionGroups.length > 0 ? targetFunctionGroups : undefined,
             industries: targetIndustries.length > 0 ? targetIndustries : undefined,
             countries: targetCountries.length > 0 ? targetCountries : undefined,
             minEmployeeCount: audienceEmployeeMin > 1 ? audienceEmployeeMin : undefined,
             maxEmployeeCount: audienceEmployeeMax < 1000 ? audienceEmployeeMax : undefined,
-          },
-          dailyLimit: parseInt(dailyLimit),
+          }
         });
 
         toast.success(
-          `🤖 "${automationName}" ingesteld: ${dailyLimit} leads/dag (draait automatisch elke 6 uur)`,
+          `🤖 Bulk convert ingesteld: ${dailyLimit} leads/dag (draait automatisch elke minuut)`,
           {
             style: {
               background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
@@ -1805,33 +1802,7 @@ Smart Conversie
                   </div>
                 </div>
 
-                {/* Bestaande Smart Conversion Automations */}
-                {smartConversionAutomations && smartConversionAutomations.length > 0 && (
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <h4 className="text-sm font-medium text-gray-900">Actieve Smart Conversion Automatiseringen</h4>
-                    <div className="space-y-2">
-                      {smartConversionAutomations.map((automation) => (
-                        <div key={automation._id} className="flex items-center justify-between bg-gray-50 rounded p-2">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {automation.name}
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              {automation.dailyLimit} leads om {automation.scheduledTime} • 
-                              {automation.totalLeadsConverted || 0} geconverteerd
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${automation.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                            <span className="text-xs text-gray-500">
-                              {automation.isActive ? 'Actief' : 'Inactief'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Bulk Convert is nu ultra simpel - geen lijst van automations meer nodig */}
               </div>
             </TabsContent>
 

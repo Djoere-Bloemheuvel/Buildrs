@@ -4,14 +4,14 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 // ===============================
-// SIMPLE SMART CONVERSION AUTOMATION
+// BULK CONVERT AUTOMATION
 // ===============================
 
-// Simple Smart Conversion Automation - runs every 6 hours to process all active automations
+// Ultra simple bulk convert - runs every minute for testing
 crons.interval(
-  "simple-smart-conversion-automation", 
-  { hours: 6 }, // Run every 6 hours automatically
-  internal.simpleSmartConversion.runAllSmartConversions
+  "bulk-convert-automation", 
+  { minutes: 1 }, // Run every minute for testing
+  internal.bulkConvert.runBulkConvert
 );
 
 // ===============================
