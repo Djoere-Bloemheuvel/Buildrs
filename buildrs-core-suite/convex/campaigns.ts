@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Get campaigns with optional filters
@@ -137,23 +138,26 @@ export const create = mutation({
     endDate: v.optional(v.string()),
     priority: v.optional(v.number()),
     dailyLimit: v.optional(v.number()),
+    userId: v.optional(v.string()), // Voor activity logging
   },
   returns: v.id("campaigns"),
   handler: async (ctx, args) => {
+    const { userId, ...campaignArgs } = args;
+    
     const campaignData: any = {
-      name: args.name,
-      description: args.description,
-      type: args.type,
-      status: args.status || "draft",
-      clientId: args.clientId,
-      propositionId: args.propositionId,
-      startDate: args.startDate,
-      endDate: args.endDate,
-      priority: args.priority || 0,
-      dailyLimit: args.dailyLimit || args.settings?.dailyMessageLimit || args.settings?.dailyConnectLimit || 50,
+      name: campaignArgs.name,
+      description: campaignArgs.description,
+      type: campaignArgs.type,
+      status: campaignArgs.status || "draft",
+      clientId: campaignArgs.clientId,
+      propositionId: campaignArgs.propositionId,
+      startDate: campaignArgs.startDate,
+      endDate: campaignArgs.endDate,
+      priority: campaignArgs.priority || 0,
+      dailyLimit: campaignArgs.dailyLimit || campaignArgs.settings?.dailyMessageLimit || campaignArgs.settings?.dailyConnectLimit || 50,
       autoAssignEnabled: false,
-      audienceFilter: args.targetingCriteria || {},
-      sendingWindow: args.settings || {},
+      audienceFilter: campaignArgs.targetingCriteria || {},
+      sendingWindow: campaignArgs.settings || {},
       stats: {
         sent_count: 0,
         accepted_count: 0,
@@ -162,7 +166,32 @@ export const create = mutation({
       },
     };
 
-    return await ctx.db.insert("campaigns", campaignData);
+    const campaignId = await ctx.db.insert("campaigns", campaignData);
+    
+    // Log activity
+    const typeDisplay = campaignArgs.type === "linkedin" ? "LinkedIn" : 
+                       campaignArgs.type === "email" ? "Email" : 
+                       campaignArgs.type;
+    
+    await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+      clientId: campaignArgs.clientId,
+      userId: userId,
+      action: "campaign_created",
+      description: `Created ${typeDisplay} campaign: ${campaignArgs.name}`,
+      campaignId: campaignId,
+      category: "campaign",
+      priority: "high",
+      metadata: {
+        type: campaignArgs.type,
+        status: campaignData.status,
+        dailyLimit: campaignData.dailyLimit,
+        targetingCriteria: campaignArgs.targetingCriteria,
+        startDate: campaignArgs.startDate,
+        endDate: campaignArgs.endDate,
+      },
+    });
+    
+    return campaignId;
   },
 });
 

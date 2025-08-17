@@ -40,4 +40,52 @@ crons.daily(
   internal.apolloProcessor.dailyCompanySummaryEnrichment
 );
 
+// ===============================
+// EMAIL SYNC AUTOMATION
+// ===============================
+
+/**
+ * Email sync cron job - runs every 15 minutes during business hours
+ * This provides real-time email monitoring while respecting API rate limits
+ */
+crons.interval(
+  "sync-emails-frequent",
+  { minutes: 15 },
+  internal.emailSync.syncAllEmailAccounts,
+  {}
+);
+
+/**
+ * Daily email sync - comprehensive sync at night
+ * This catches any missed emails and performs maintenance tasks
+ */
+crons.daily(
+  "sync-emails-daily",
+  { hourUTC: 1, minuteUTC: 0 }, // 1 AM UTC (before enrichment jobs)
+  internal.emailSync.syncAllEmailAccounts,
+  {}
+);
+
+/**
+ * Token refresh check - runs every hour
+ * Proactively refreshes OAuth tokens before they expire
+ */
+crons.hourly(
+  "refresh-oauth-tokens",
+  { minuteUTC: 30 },
+  internal.emailAccounts.refreshExpiredTokens,
+  {}
+);
+
+/**
+ * Weekly cleanup of old communications data
+ * Runs every Sunday at 4 AM UTC to clean up old data (if configured)
+ */
+crons.weekly(
+  "cleanup-old-communications",
+  { dayOfWeek: "sunday", hourUTC: 4, minuteUTC: 0 },
+  internal.emailSync.cleanupOldCommunications,
+  { maxAgeMonths: 24 }
+);
+
 export default crons;

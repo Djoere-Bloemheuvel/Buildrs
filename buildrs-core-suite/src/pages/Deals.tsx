@@ -62,29 +62,36 @@ const Deals = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // === FETCH PIPELINES ===
+  // === FETCH ALL DATA IN PARALLEL ===
   const pipelinesData = useQuery(api.pipelines.getByClient, 
     clientId ? { clientId } : "skip"
   );
   const pipelines = pipelinesData || [];
 
-  // Auto-select default pipeline
+  // Determine default pipeline immediately when pipelines load
+  const defaultPipeline = useMemo(() => {
+    if (pipelines.length === 0) return null;
+    return pipelines.find((p: Pipeline) => p.isDefault) || pipelines[0];
+  }, [pipelines]);
+
+  // Auto-select default pipeline immediately
   useEffect(() => {
-    if (pipelines.length > 0 && !activePipeline) {
-      const defaultPipeline = pipelines.find((p: Pipeline) => p.isDefault) || pipelines[0];
+    if (defaultPipeline && !activePipeline) {
       setActivePipeline(defaultPipeline._id);
     }
-  }, [pipelines, activePipeline]);
+  }, [defaultPipeline, activePipeline]);
 
-  // === FETCH STAGES ===
+  // Use defaultPipeline._id as fallback to start loading stages/deals immediately
+  const effectivePipelineId = activePipeline || defaultPipeline?._id;
+
+  // === FETCH STAGES AND DEALS IN PARALLEL ===
   const stagesData = useQuery(api.stages.getByPipeline, 
-    activePipeline ? { pipelineId: activePipeline } : "skip"
+    effectivePipelineId ? { pipelineId: effectivePipelineId } : "skip"
   );
   const stages = stagesData || [];
 
-  // === FETCH DEALS ===
   const dealsData = useQuery(api.deals.getByPipeline, 
-    activePipeline ? { pipelineId: activePipeline } : "skip"
+    effectivePipelineId ? { pipelineId: effectivePipelineId } : "skip"
   );
   const deals = dealsData || [];
 
@@ -179,81 +186,153 @@ const Deals = () => {
   }, [filteredDeals]);
 
   return (
-    <div className="p-6 space-y-8 min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20">
-      {/* Header */}
-      <div className="glass-card p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Sales Pipeline
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Beheer je deals en volg je verkoopproces
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Modern Header - Inspired by ABM page */}
+      <div className="border-b bg-white/80 backdrop-blur-xl sticky top-0 z-40 -ml-6 w-[102.5%] -mt-6">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">
+                Sales Pipeline
+              </h1>
+              <p className="text-slate-600 mt-1 font-medium">
+                Beheer je deals en volg je verkoopproces
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-56">
+                  <Select value={activePipeline || ''} onValueChange={setActivePipeline}>
+                    <SelectTrigger className="h-11 bg-white/60 border-slate-200 focus:bg-white">
+                      <SelectValue placeholder="Selecteer Pipeline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pipelines.map((pipeline: Pipeline) => (
+                        <SelectItem key={pipeline._id} value={pipeline._id}>
+                          {pipeline.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Zoek deals..."
+                    className="pl-10 w-72 h-11 bg-white/60 border-slate-200 focus:bg-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setIsPipelineModalOpen(true)} className="h-11 px-4">
+                  Nieuwe Pipeline
+                </Button>
+                <Button 
+                  onClick={handleCreateDeal} 
+                  className="h-11 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nieuwe Deal
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsPipelineModalOpen(true)} className="h-12 px-4 border-white/20">
-              Nieuwe Pipeline
-            </Button>
-            <Button onClick={handleCreateDeal} className="h-12 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg">
-              <Plus className="h-4 w-4 mr-2" />
-              Nieuwe Deal
-            </Button>
+        </div>
+      </div>
+
+      <div className="py-8">
+        {/* KPI Cards - Inspired by ABM page */}
+        <div className="px-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="border-0 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-blue-100 font-medium">Totaal Deals</span>
+                  <Target className="w-5 h-5 text-blue-200" />
+                </div>
+                <div className="text-3xl font-bold">{kpis.totalDeals}</div>
+                <p className="text-blue-200 text-sm">in pipeline</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-emerald-100 font-medium">Pipeline Waarde</span>
+                  <DollarSign className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div className="text-3xl font-bold">{currencyFormatter(kpis.totalValue, 'EUR')}</div>
+                <p className="text-emerald-200 text-sm">totale waarde</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-orange-100 font-medium">Gewogen Forecast</span>
+                  <TrendingUp className="w-5 h-5 text-orange-200" />
+                </div>
+                <div className="text-3xl font-bold">{currencyFormatter(kpis.weighted, 'EUR')}</div>
+                <p className="text-orange-200 text-sm">verwachte waarde</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-purple-100 font-medium">Gem. Confidence</span>
+                  <Building2 className="w-5 h-5 text-purple-200" />
+                </div>
+                <div className="text-3xl font-bold">{kpis.avgConfidence}%</div>
+                <p className="text-purple-200 text-sm">gemiddelde kans</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-6">
-        <div className="w-72">
-          <Select value={activePipeline || ''} onValueChange={setActivePipeline}>
-            <SelectTrigger className="h-12 glass-card border-white/20">
-              <SelectValue placeholder="Selecteer Pipeline" />
-            </SelectTrigger>
-            <SelectContent>
-              {pipelines.map((pipeline: Pipeline) => (
-                <SelectItem key={pipeline._id} value={pipeline._id}>
-                  {pipeline.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Zoek deals..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-12 pl-10 glass-card border-white/20"
-          />
-        </div>
-      </div>
-
-      {/* Compact KPIs */}
-      <div className="glass-card p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Totaal deals</p>
-          <p className="text-lg font-semibold">{kpis.totalDeals}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Pipeline waarde</p>
-          <p className="text-lg font-semibold">{currencyFormatter(kpis.totalValue, 'EUR')}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Gewogen forecast</p>
-          <p className="text-lg font-semibold">{currencyFormatter(kpis.weighted, 'EUR')}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Gem. confidence</p>
-          <p className="text-lg font-semibold">{kpis.avgConfidence}%</p>
-        </div>
-      </div>
-
-      {/* Kanban Board */}
-      <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className={`flex gap-6 overflow-x-auto pb-6 transition-all duration-300 ${isDragging ? 'cursor-grabbing' : ''}`}>
-          {stages.map((stage, index) => {
+        {/* Kanban Board */}
+        <div className="px-8">
+          <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+            <div className={`flex gap-6 overflow-x-auto pb-6 transition-all duration-300 ${isDragging ? 'cursor-grabbing' : ''}`}>
+          {/* Show loading skeleton if stages are not loaded yet */}
+          {stages.length === 0 && stagesData === undefined ? (
+            // Loading skeleton - immediate display
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={`skeleton-${index}`} className="min-w-[350px] flex-shrink-0">
+                {/* Skeleton Stage Header */}
+                <div className="glass-card p-4 mb-4 bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-slate-300 animate-pulse"></div>
+                      <div>
+                        <div className="h-5 w-24 bg-slate-300 rounded animate-pulse mb-2"></div>
+                        <div className="h-4 w-32 bg-slate-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="w-8 h-6 bg-slate-300 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+                
+                {/* Skeleton Deals Container */}
+                <div className="min-h-[400px] space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                  {Array.from({ length: 2 }).map((_, dealIndex) => (
+                    <div key={`skeleton-deal-${dealIndex}`} className="p-4 bg-white/10 rounded-lg animate-pulse">
+                      <div className="h-4 w-3/4 bg-slate-300 rounded mb-3"></div>
+                      <div className="h-3 w-1/2 bg-slate-200 rounded mb-2"></div>
+                      <div className="flex justify-between">
+                        <div className="h-3 w-16 bg-slate-200 rounded"></div>
+                        <div className="h-3 w-12 bg-slate-200 rounded"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            // Actual stages when loaded
+            stages.map((stage, index) => {
             const stageStyle = getStageStyle(index);
             const stats = getStageStats(stage._id);
             const IconComponent = stageStyle.icon;
@@ -372,9 +451,11 @@ const Deals = () => {
                 </Droppable>
               </div>
             );
-          })}
+          }))}
+            </div>
+          </DragDropContext>
         </div>
-      </DragDropContext>
+      </div>
 
       <NewDealModal
         open={isCreateModalOpen}

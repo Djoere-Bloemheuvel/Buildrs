@@ -79,6 +79,14 @@ const navigation = [
       { name: 'Insights', href: '/analytics/insights' },
       { name: 'Performance', href: '/analytics/performance' }
     ]
+  },
+  {
+    name: 'Settings',
+    icon: Settings,
+    color: 'gray',
+    children: [
+      { name: 'System Settings', href: '/settings' }
+    ]
   }
 ];
 

@@ -13,6 +13,9 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as activityLogger from "../activityLogger.js";
+import type * as activityPerformanceOptimizer from "../activityPerformanceOptimizer.js";
+import type * as activitySecurityAuditor from "../activitySecurityAuditor.js";
 import type * as analyticsViews from "../analyticsViews.js";
 import type * as apolloProcessor from "../apolloProcessor.js";
 import type * as auth from "../auth.js";
@@ -32,6 +35,8 @@ import type * as campaigns from "../campaigns.js";
 import type * as candidateViews from "../candidateViews.js";
 import type * as checkSpecificAutomation from "../checkSpecificAutomation.js";
 import type * as cleanAutomationSystem from "../cleanAutomationSystem.js";
+import type * as clients from "../clients.js";
+import type * as communications from "../communications.js";
 import type * as companies from "../companies.js";
 import type * as companyEnrichment from "../companyEnrichment.js";
 import type * as contacts from "../contacts.js";
@@ -40,25 +45,31 @@ import type * as creditSystem from "../creditSystem.js";
 import type * as creditSystemSecure from "../creditSystemSecure.js";
 import type * as crons from "../crons.js";
 import type * as deals from "../deals.js";
+import type * as emailAccounts from "../emailAccounts.js";
+import type * as emailSync from "../emailSync.js";
 import type * as exactLeadConversion from "../exactLeadConversion.js";
 import type * as exactLeadDatabase from "../exactLeadDatabase.js";
+import type * as firecrawl from "../firecrawl.js";
 import type * as http from "../http.js";
 import type * as leadConversion from "../leadConversion.js";
 import type * as leadUpdater from "../leadUpdater.js";
 import type * as leads from "../leads.js";
 import type * as migrations from "../migrations.js";
+import type * as oauth from "../oauth.js";
 import type * as payAsYouScale from "../payAsYouScale.js";
 import type * as payAsYouScaleSchema from "../payAsYouScaleSchema.js";
 import type * as payAsYouScaleStripe from "../payAsYouScaleStripe.js";
 import type * as pilotUpgradeBonus from "../pilotUpgradeBonus.js";
 import type * as pipelines from "../pipelines.js";
 import type * as propositions from "../propositions.js";
+import type * as rateLimiting from "../rateLimiting.js";
 import type * as repairSystemIntegrity from "../repairSystemIntegrity.js";
 import type * as resetAutomationTemplates from "../resetAutomationTemplates.js";
 import type * as sampleData from "../sampleData.js";
 import type * as searchViews from "../searchViews.js";
 import type * as seedCreditPackages from "../seedCreditPackages.js";
 import type * as seedPayAsYouScale from "../seedPayAsYouScale.js";
+import type * as settings from "../settings.js";
 import type * as setupClientAutomations from "../setupClientAutomations.js";
 import type * as setupStripeProducts from "../setupStripeProducts.js";
 import type * as stageAutomations from "../stageAutomations.js";
@@ -70,6 +81,8 @@ import type * as systemValidation from "../systemValidation.js";
 import type * as timelineViews from "../timelineViews.js";
 import type * as updateStartToPilot from "../updateStartToPilot.js";
 import type * as views from "../views.js";
+import type * as webhookSecurity from "../webhookSecurity.js";
+import type * as webhooks from "../webhooks.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -80,6 +93,9 @@ import type * as views from "../views.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  activityLogger: typeof activityLogger;
+  activityPerformanceOptimizer: typeof activityPerformanceOptimizer;
+  activitySecurityAuditor: typeof activitySecurityAuditor;
   analyticsViews: typeof analyticsViews;
   apolloProcessor: typeof apolloProcessor;
   auth: typeof auth;
@@ -99,6 +115,8 @@ declare const fullApi: ApiFromModules<{
   candidateViews: typeof candidateViews;
   checkSpecificAutomation: typeof checkSpecificAutomation;
   cleanAutomationSystem: typeof cleanAutomationSystem;
+  clients: typeof clients;
+  communications: typeof communications;
   companies: typeof companies;
   companyEnrichment: typeof companyEnrichment;
   contacts: typeof contacts;
@@ -107,25 +125,31 @@ declare const fullApi: ApiFromModules<{
   creditSystemSecure: typeof creditSystemSecure;
   crons: typeof crons;
   deals: typeof deals;
+  emailAccounts: typeof emailAccounts;
+  emailSync: typeof emailSync;
   exactLeadConversion: typeof exactLeadConversion;
   exactLeadDatabase: typeof exactLeadDatabase;
+  firecrawl: typeof firecrawl;
   http: typeof http;
   leadConversion: typeof leadConversion;
   leadUpdater: typeof leadUpdater;
   leads: typeof leads;
   migrations: typeof migrations;
+  oauth: typeof oauth;
   payAsYouScale: typeof payAsYouScale;
   payAsYouScaleSchema: typeof payAsYouScaleSchema;
   payAsYouScaleStripe: typeof payAsYouScaleStripe;
   pilotUpgradeBonus: typeof pilotUpgradeBonus;
   pipelines: typeof pipelines;
   propositions: typeof propositions;
+  rateLimiting: typeof rateLimiting;
   repairSystemIntegrity: typeof repairSystemIntegrity;
   resetAutomationTemplates: typeof resetAutomationTemplates;
   sampleData: typeof sampleData;
   searchViews: typeof searchViews;
   seedCreditPackages: typeof seedCreditPackages;
   seedPayAsYouScale: typeof seedPayAsYouScale;
+  settings: typeof settings;
   setupClientAutomations: typeof setupClientAutomations;
   setupStripeProducts: typeof setupStripeProducts;
   stageAutomations: typeof stageAutomations;
@@ -137,6 +161,8 @@ declare const fullApi: ApiFromModules<{
   timelineViews: typeof timelineViews;
   updateStartToPilot: typeof updateStartToPilot;
   views: typeof views;
+  webhookSecurity: typeof webhookSecurity;
+  webhooks: typeof webhooks;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

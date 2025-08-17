@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Get contacts with optional filters
@@ -196,15 +197,42 @@ export const create = mutation({
     country: v.optional(v.string()),
     state: v.optional(v.string()),
     city: v.optional(v.string()),
+    userId: v.optional(v.string()), // Voor activity logging
   },
   returns: v.id("contacts"),
   handler: async (ctx, args) => {
-    return await ctx.db.insert("contacts", {
-      ...args,
-      status: args.status || "cold",
+    const { userId, ...contactData } = args;
+    
+    const contactId = await ctx.db.insert("contacts", {
+      ...contactData,
+      status: contactData.status || "cold",
       tags: [],
       optedIn: false,
     });
+    
+    // Log activity
+    if (contactData.clientId) {
+      const contactName = `${contactData.firstName || ''} ${contactData.lastName || ''}`.trim() || 'New Contact';
+      
+      await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+        clientId: contactData.clientId,
+        userId: userId,
+        action: "contact_created",
+        description: `Created contact: ${contactName}${contactData.jobTitle ? ` (${contactData.jobTitle})` : ''}`,
+        contactId: contactId,
+        companyId: contactData.companyId,
+        category: "contact",
+        priority: "high",
+        metadata: {
+          email: contactData.email,
+          jobTitle: contactData.jobTitle,
+          functionGroup: contactData.functionGroup,
+          status: contactData.status || "cold",
+        },
+      });
+    }
+    
+    return contactId;
   },
 });
 
@@ -226,10 +254,17 @@ export const update = mutation({
     tags: v.optional(v.array(v.string())),
     isLinkedinConnected: v.optional(v.boolean()),
     optedIn: v.optional(v.boolean()),
+    userId: v.optional(v.string()), // Voor activity logging
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { id, ...updateData } = args;
+    const { id, userId, ...updateData } = args;
+    
+    // Get existing contact for comparison
+    const existingContact = await ctx.db.get(id);
+    if (!existingContact) {
+      throw new Error("Contact not found");
+    }
     
     // Remove undefined values
     const cleanData = Object.fromEntries(
@@ -238,6 +273,65 @@ export const update = mutation({
     
     if (Object.keys(cleanData).length > 0) {
       await ctx.db.patch(id, cleanData);
+      
+      // Log activity for significant changes
+      const contactName = `${existingContact.firstName || ''} ${existingContact.lastName || ''}`.trim() || 'Contact';
+      const changes = [];
+      
+      // Track significant changes
+      if (cleanData.status && cleanData.status !== existingContact.status) {
+        changes.push(`status: ${existingContact.status} → ${cleanData.status}`);
+      }
+      
+      if (cleanData.jobTitle && cleanData.jobTitle !== existingContact.jobTitle) {
+        changes.push(`job title: ${existingContact.jobTitle || 'none'} → ${cleanData.jobTitle}`);
+      }
+      
+      if (cleanData.email && cleanData.email !== existingContact.email) {
+        changes.push(`email: ${existingContact.email || 'none'} → ${cleanData.email}`);
+      }
+      
+      if (cleanData.functionGroup && cleanData.functionGroup !== existingContact.functionGroup) {
+        changes.push(`function group: ${existingContact.functionGroup || 'none'} → ${cleanData.functionGroup}`);
+      }
+      
+      if (cleanData.isLinkedinConnected !== undefined && cleanData.isLinkedinConnected !== existingContact.isLinkedinConnected) {
+        changes.push(`LinkedIn: ${existingContact.isLinkedinConnected ? 'connected' : 'not connected'} → ${cleanData.isLinkedinConnected ? 'connected' : 'not connected'}`);
+      }
+      
+      // Log activity based on type of change
+      if (cleanData.status && cleanData.status !== existingContact.status) {
+        await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+          clientId: existingContact.clientId!,
+          userId: userId,
+          action: "contact_status_changed",
+          description: `Changed ${contactName} status from ${existingContact.status} to ${cleanData.status}`,
+          contactId: id,
+          companyId: existingContact.companyId,
+          category: "contact",
+          priority: "medium",
+          metadata: {
+            oldStatus: existingContact.status,
+            newStatus: cleanData.status,
+            allChanges: changes,
+          },
+        });
+      } else if (changes.length > 0) {
+        await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+          clientId: existingContact.clientId!,
+          userId: userId,
+          action: "contact_updated",
+          description: `Updated ${contactName}: ${changes.join(', ')}`,
+          contactId: id,
+          companyId: existingContact.companyId,
+          category: "contact",
+          priority: "low",
+          metadata: {
+            changes: changes,
+            fieldsUpdated: Object.keys(cleanData),
+          },
+        });
+      }
     }
     
     return null;

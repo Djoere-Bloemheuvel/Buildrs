@@ -31,6 +31,7 @@ export default function LeadLinkedIn() {
   const [processingOpen, setProcessingOpen] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
   const [propositionId, setPropositionId] = useState<string | null>(null)
+  const [selectedTab, setSelectedTab] = useState('dashboard')
   const [audFunctions, setAudFunctions] = useState<string[]>([])
   const [audIndustries, setAudIndustries] = useState<string[]>([])
   const [audSubindustries, setAudSubindustries] = useState<string[]>([])
@@ -364,58 +365,39 @@ export default function LeadLinkedIn() {
   }
 
   return (
-    <div className="min-h-screen bg-page">
-      <div className="glass-surface border-b">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          {/* Modern Header */}
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                  <Linkedin className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                    LinkedIn Engine
-                  </h1>
-                  <p className="text-muted-foreground mt-1">Professional outreach & lead generation platform</p>
-                </div>
-              </div>
-              
-              {/* Quick Stats Bar */}
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>{(campaigns ?? []).filter(c => c.status === 'active').length} Active</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-blue-500" />
-                  <span>{aggregatedStats.new_connections} Connections</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-purple-500" />
-                  <span>{aggregatedStats.meetings_booked} Meetings</span>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Modern Header - Exact ABM style */}
+      <div className="border-b bg-white/80 backdrop-blur-xl sticky top-0 z-40 -ml-6 w-[102.5%] -mt-6">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">
+                LinkedIn Campaigns
+              </h1>
+              <p className="text-slate-600 mt-1 font-medium">
+                Automated LinkedIn outreach en verbinding beheer
+              </p>
             </div>
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="w-4 h-4" />
-                Filter
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Analytics
-              </Button>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Zoek campagnes, doelgroepen..."
+                  className="pl-10 w-80 h-11 bg-white/60 border-slate-200 focus:bg-white"
+                />
+              </div>
               <Dialog open={openNew} onOpenChange={setOpenNew}>
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg gap-2">
-                    <Plus className="w-4 h-4" />
-                    New Campaign
+                  <Button 
+                    className="h-11 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nieuwe Campagne
                   </Button>
                 </DialogTrigger>
-          <DialogContent className="max-w-5xl w-full h-[90vh] bg-background/95 backdrop-blur-xl border-0 shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="max-w-5xl w-full h-[90vh] bg-background/95 backdrop-blur-xl border-0 shadow-2xl p-0 overflow-hidden">
             <DialogHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8 pb-6">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-white">
                 <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
@@ -486,109 +468,102 @@ export default function LeadLinkedIn() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+            </div>
+          </div>
         </div>
+
+        {/* Navigation Tabs */}
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          <div className="px-8">
+            <TabsList className="h-12 bg-slate-100 p-1">
+              <TabsTrigger value="dashboard" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <Target className="w-4 h-4 mr-2" />
+                Campagnes
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                <Settings className="w-4 h-4 mr-2" />
+                Instellingen
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
       </div>
-      
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Enhanced Statistics Grid with Glass Morphism */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-blue-400/10 to-transparent rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
-            <CardContent className="relative p-6 z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="relative p-4 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-sm border border-white/20 group-hover:scale-110 transition-all duration-300 shadow-lg">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/30 to-blue-600/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <UserPlus className="relative w-6 h-6 text-blue-600 dark:text-blue-400 drop-shadow-sm" />
+
+      <div className="py-8">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          <TabsContent value="dashboard" className="space-y-8">
+            {/* KPI Cards */}
+            <div className="px-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="border-0 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-blue-100 font-medium text-sm">Connection Requests</span>
+                      <UserPlus className="w-4 h-4 text-blue-200" />
+                    </div>
+                    <div className="text-2xl font-bold">{aggregatedStats.connection_requests_sent.toLocaleString()}</div>
+                    <p className="text-blue-200 text-xs">{aggregatedStats.new_connections} geaccepteerd</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-emerald-100 font-medium text-sm">Nieuwe Connecties</span>
+                      <Users className="w-4 h-4 text-emerald-200" />
+                    </div>
+                    <div className="text-2xl font-bold">{aggregatedStats.new_connections.toLocaleString()}</div>
+                    <p className="text-emerald-200 text-xs">{aggregatedStats.connection_rate}% acceptatie</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-orange-100 font-medium text-sm">Reacties Ontvangen</span>
+                      <MessageSquare className="w-4 h-4 text-orange-200" />
+                    </div>
+                    <div className="text-2xl font-bold">{aggregatedStats.replies_received.toLocaleString()}</div>
+                    <p className="text-orange-200 text-xs">{aggregatedStats.response_rate}% reactiepercentage</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-purple-100 font-medium text-sm">Meetings Geboekt</span>
+                      <Calendar className="w-4 h-4 text-purple-200" />
+                    </div>
+                    <div className="text-2xl font-bold">{aggregatedStats.meetings_booked.toLocaleString()}</div>
+                    <p className="text-purple-200 text-xs">{aggregatedStats.leads_generated} leads gegenereerd</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Active Campaigns */}
+            <div className="px-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Actieve Campagnes</h2>
+                  <p className="text-slate-600">Lopende LinkedIn outreach campagnes</p>
                 </div>
-                <Badge variant="secondary" className="text-xs bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-0 shadow-sm">
-                  +{Math.round(aggregatedStats.connection_rate)}%
-                </Badge>
-              </div>
-              <div className="space-y-3">
-                <p className="text-3xl font-black bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 dark:from-slate-100 dark:via-slate-200 dark:to-slate-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300 drop-shadow-sm">
-                  {aggregatedStats.connection_requests_sent.toLocaleString()}
-                </p>
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wide">Connection Requests</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{aggregatedStats.new_connections} accepted</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-emerald-400/10 to-transparent rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
-            <CardContent className="relative p-6 z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="relative p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/10 backdrop-blur-sm border border-white/20 group-hover:scale-110 transition-all duration-300 shadow-lg">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/30 to-emerald-600/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <Users className="relative w-6 h-6 text-green-600 dark:text-green-400 drop-shadow-sm" />
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filteren
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Exporteren
+                  </Button>
                 </div>
-                <Badge variant="secondary" className="text-xs bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-0 shadow-sm">
-                  {aggregatedStats.connection_rate}%
-                </Badge>
               </div>
-              <div className="space-y-3">
-                <p className="text-3xl font-black bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 dark:from-slate-100 dark:via-slate-200 dark:to-slate-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300 drop-shadow-sm">
-                  {aggregatedStats.new_connections.toLocaleString()}
-                </p>
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wide">New Connections</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">This month</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-violet-400/10 to-transparent rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
-            <CardContent className="relative p-6 z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="relative p-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-violet-600/10 backdrop-blur-sm border border-white/20 group-hover:scale-110 transition-all duration-300 shadow-lg">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/30 to-violet-600/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <MessageSquare className="relative w-6 h-6 text-purple-600 dark:text-purple-400 drop-shadow-sm" />
-                </div>
-                <Badge variant="secondary" className="text-xs bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-0 shadow-sm">
-                  {aggregatedStats.response_rate}%
-                </Badge>
-              </div>
-              <div className="space-y-3">
-                <p className="text-3xl font-black bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 dark:from-slate-100 dark:via-slate-200 dark:to-slate-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300 drop-shadow-sm">
-                  {aggregatedStats.replies_received.toLocaleString()}
-                </p>
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wide">Replies Received</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">From {aggregatedStats.messages_sent} sent</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-white/90 via-white/70 to-white/50 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-slate-900/50 backdrop-blur-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 via-amber-400/10 to-transparent rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            
-            <CardContent className="relative p-6 z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="relative p-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-600/10 backdrop-blur-sm border border-white/20 group-hover:scale-110 transition-all duration-300 shadow-lg">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-orange-500/30 to-amber-600/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <Calendar className="relative w-6 h-6 text-orange-600 dark:text-orange-400 drop-shadow-sm" />
-                </div>
-                <Badge variant="secondary" className="text-xs bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-0 shadow-sm">
-                  Hot 🔥
-                </Badge>
-              </div>
-              <div className="space-y-3">
-                <p className="text-3xl font-black bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 dark:from-slate-100 dark:via-slate-200 dark:to-slate-300 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300 drop-shadow-sm">
-                  {aggregatedStats.meetings_booked.toLocaleString()}
-                </p>
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wide">Meetings Booked</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{aggregatedStats.leads_generated} leads generated</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
+
         {/* Search and Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
@@ -734,10 +709,38 @@ export default function LeadLinkedIn() {
             </div>
           </DialogContent>
         </Dialog>
+
+            </div>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-8">
+            <div className="px-8">
+              <div className="text-center py-16">
+                <div className="p-4 bg-muted/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <TrendingUp className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Analytics komen binnenkort</h3>
+                <p className="text-muted-foreground">Uitgebreide analytics en rapportages worden binnenkort beschikbaar.</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-8">
+            <div className="px-8">
+              <div className="text-center py-16">
+                <div className="p-4 bg-muted/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Settings className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Instellingen komen binnenkort</h3>
+                <p className="text-muted-foreground">Campagne instellingen en automatiseringen worden binnenkort beschikbaar.</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
-  </div>
-  </div>
   )
 }
 

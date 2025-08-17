@@ -1749,4 +1749,290 @@ export default defineSchema({
     .index("by_state", ["state"])
     .index("by_failure_count", ["failureCount"]),
 
+  // ===============================
+  // COMMUNICATIONS SYSTEM
+  // ===============================
+
+  // All communications (emails, LinkedIn, phone calls, meetings, notes)
+  communications: defineTable({
+    // Core identifiers
+    clientId: v.id("clients"),
+    contactId: v.optional(v.id("contacts")),
+    companyId: v.optional(v.id("companies")),
+    campaignId: v.optional(v.id("campaigns")),
+    
+    // Communication details
+    type: v.union(
+      v.literal("email"), 
+      v.literal("linkedin"), 
+      v.literal("phone"), 
+      v.literal("meeting"),
+      v.literal("note")
+    ),
+    direction: v.union(v.literal("inbound"), v.literal("outbound")),
+    status: v.union(
+      v.literal("sent"), 
+      v.literal("delivered"), 
+      v.literal("opened"), 
+      v.literal("clicked"),
+      v.literal("replied"), 
+      v.literal("bounced"),
+      v.literal("failed"),
+      v.literal("connected"), // LinkedIn specific
+      v.literal("answered"), // Phone specific
+      v.literal("voicemail"), // Phone specific
+      v.literal("missed") // Phone specific
+    ),
+    
+    // Content
+    subject: v.optional(v.string()),
+    content: v.string(),
+    
+    // Provider tracking
+    provider: v.union(
+      v.literal("instantly"), 
+      v.literal("phantombuster"), 
+      v.literal("aircall"),
+      v.literal("gmail"),
+      v.literal("outlook"),
+      v.literal("manual")
+    ),
+    
+    // Provider-specific metadata
+    metadata: v.optional(v.object({
+      // Email (Instantly + Gmail/Outlook)
+      messageId: v.optional(v.string()),
+      threadId: v.optional(v.string()),
+      gmailMessageId: v.optional(v.string()),
+      outlookMessageId: v.optional(v.string()),
+      instantlyMessageId: v.optional(v.string()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      repliedAt: v.optional(v.number()),
+      
+      // LinkedIn (PhantomBuster)
+      linkedinProfileUrl: v.optional(v.string()),
+      phantomBusterSessionId: v.optional(v.string()),
+      connectionRequestSent: v.optional(v.boolean()),
+      connectionAccepted: v.optional(v.boolean()),
+      
+      // Phone (AirCall)
+      aircallCallId: v.optional(v.string()),
+      phoneNumber: v.optional(v.string()),
+      duration: v.optional(v.number()),
+      recordingUrl: v.optional(v.string()),
+      
+      // Meeting
+      meetingUrl: v.optional(v.string()),
+      meetingPlatform: v.optional(v.string()),
+      
+      // Email parsing & headers
+      emailHeaders: v.optional(v.any()),
+      attachments: v.optional(v.array(v.string())),
+      
+      // Additional tracking data
+      userAgent: v.optional(v.string()),
+      ipAddress: v.optional(v.string()),
+      location: v.optional(v.string()),
+    })),
+    
+    // Email addresses for matching
+    fromEmail: v.optional(v.string()),
+    toEmail: v.optional(v.string()),
+    ccEmails: v.optional(v.array(v.string())),
+    bccEmails: v.optional(v.array(v.string())),
+    
+    // Tracking
+    timestamp: v.number(),
+    userId: v.optional(v.string()), // Which user sent/created this
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_contact", ["contactId"])
+    .index("by_campaign", ["campaignId"])
+    .index("by_client_contact", ["clientId", "contactId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_from_email", ["fromEmail"])
+    .index("by_to_email", ["toEmail"])
+    .index("by_provider", ["provider"])
+    .index("by_type", ["type"])
+    .index("by_status", ["status"])
+    .index("by_direction", ["direction"]),
+
+  // Email account monitoring setup
+  emailAccounts: defineTable({
+    clientId: v.id("clients"),
+    email: v.string(),
+    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    
+    // OAuth tokens
+    accessToken: v.string(),
+    refreshToken: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
+    
+    // Sync tracking
+    lastSyncTimestamp: v.optional(v.number()),
+    lastSyncStatus: v.optional(v.string()), // "success", "failed", "partial"
+    lastSyncError: v.optional(v.string()),
+    
+    // Account status
+    isActive: v.boolean(),
+    isValid: v.optional(v.boolean()), // Token still valid?
+    
+    // Monitoring settings
+    settings: v.object({
+      monitorInbound: v.boolean(),
+      monitorOutbound: v.boolean(),
+      autoMatchContacts: v.boolean(),
+      syncFrequency: v.optional(v.number()), // minutes
+      maxSyncMessages: v.optional(v.number()),
+    }),
+    
+    // Stats
+    totalMessagesSynced: v.optional(v.number()),
+    totalContactsMatched: v.optional(v.number()),
+    
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_email", ["email"])
+    .index("by_provider", ["provider"])
+    .index("by_active", ["isActive"]),
+
+  // ===============================
+  // ACTIVITY LOGGING SYSTEM
+  // ===============================
+
+  // Central activity log for all CRM actions
+  activityLog: defineTable({
+    // Core identifiers
+    clientId: v.id("clients"),
+    userId: v.optional(v.string()), // Clerk user ID
+    
+    // Activity details
+    action: v.string(), // ACTIVITY_TYPES value
+    description: v.string(), // Human readable description
+    
+    // Related entities (optional)
+    contactId: v.optional(v.id("contacts")),
+    companyId: v.optional(v.id("companies")),
+    dealId: v.optional(v.id("deals")),
+    campaignId: v.optional(v.id("campaigns")),
+    taskId: v.optional(v.id("tasks")),
+    projectId: v.optional(v.id("projects")),
+    noteId: v.optional(v.id("notes")),
+    
+    // Categorization and metadata
+    category: v.string(), // "contact", "deal", "campaign", "system", etc.
+    priority: v.string(), // "low", "medium", "high", "critical"
+    isSystemGenerated: v.boolean(),
+    metadata: v.optional(v.any()),
+    
+    // Timestamps
+    timestamp: v.number(), // When the activity occurred
+    createdAt: v.number(), // When the log entry was created
+  }).index("by_client", ["clientId"])
+    .index("by_contact", ["contactId"])
+    .index("by_deal", ["dealId"])
+    .index("by_campaign", ["campaignId"])
+    .index("by_company", ["companyId"])
+    .index("by_user", ["userId"])
+    .index("by_category", ["category"])
+    .index("by_priority", ["priority"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_client_timestamp", ["clientId", "timestamp"])
+    .index("by_client_category", ["clientId", "category"])
+    .index("by_client_contact", ["clientId", "contactId"])
+    .index("by_action", ["action"])
+    .index("by_system_generated", ["isSystemGenerated"]),
+
+  // Rate limiting attempts tracking
+  rateLimitAttempts: defineTable({
+    key: v.string(), // "limitType:identifier"
+    timestamp: v.number(),
+    ip: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    success: v.boolean(), // Was the attempt allowed?
+    metadata: v.optional(v.any()),
+  }).index("by_key_and_time", ["key", "timestamp"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_ip", ["ip"])
+    .index("by_success", ["success"]),
+
+  // Security incidents logging
+  securityIncidents: defineTable({
+    incidentId: v.string(),
+    type: v.string(), // "suspicious_rate_limiting", "webhook_verification_failed", etc.
+    severity: v.string(), // "low", "medium", "high", "critical"
+    description: v.string(),
+    sourceIp: v.string(),
+    userAgent: v.optional(v.string()),
+    status: v.string(), // "detected", "investigating", "resolved", "false_positive"
+    detectedAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+    evidence: v.any(), // All relevant data
+  }).index("by_type", ["type"])
+    .index("by_severity", ["severity"])
+    .index("by_status", ["status"])
+    .index("by_detected_at", ["detectedAt"])
+    .index("by_source_ip", ["sourceIp"])
+    .index("by_incident_id", ["incidentId"]),
+
+  // Activity archive for long-term storage
+  activityArchive: defineTable({
+    originalId: v.string(), // Original activity ID
+    clientId: v.id("clients"),
+    action: v.string(),
+    category: v.string(),
+    timestamp: v.number(),
+    description: v.string(),
+    userId: v.optional(v.string()),
+    isSystemGenerated: v.boolean(),
+    // Minimal entity references
+    entityIds: v.object({
+      contactId: v.optional(v.id("contacts")),
+      dealId: v.optional(v.id("deals")),
+      campaignId: v.optional(v.id("campaigns")),
+      companyId: v.optional(v.id("companies")),
+    }),
+    archivedAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_action", ["action"])
+    .index("by_archived_at", ["archivedAt"]),
+
+  // Daily activity summaries for performance
+  activityDailySummaries: defineTable({
+    clientId: v.id("clients"),
+    date: v.string(), // YYYY-MM-DD format
+    totalActivities: v.number(),
+    byCategory: v.any(), // Record<string, number>
+    byPriority: v.any(), // Record<string, number>
+    byUser: v.any(), // Record<string, number>
+    topActions: v.array(v.object({
+      action: v.string(),
+      count: v.number(),
+    })),
+    uniqueContacts: v.number(),
+    uniqueDeals: v.number(),
+    uniqueCampaigns: v.number(),
+    systemGenerated: v.number(),
+    userGenerated: v.number(),
+    createdAt: v.number(),
+  }).index("by_client", ["clientId"])
+    .index("by_date", ["date"])
+    .index("by_client_date", ["clientId", "date"]),
+
+  // ===============================
+  // CLIENT SETTINGS SYSTEM
+  // ===============================
+
+  // Client-specific settings configuration
+  clientSettings: defineTable({
+    clientId: v.id("clients"),
+    settings: v.any(), // Flexible settings object - contains all configuration
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_client", ["clientId"]),
+
 });

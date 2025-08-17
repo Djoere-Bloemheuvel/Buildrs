@@ -173,9 +173,9 @@ export default function LeadDatabase() {
   const [locationOpen, setLocationOpen] = useState(false);
 
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(50); // Verminder page size voor sneller laden
+  const [pageSize] = useState<number>(100); // Verhoog page size voor betere performance
 
-  // Get filter options using NEW EXACT system
+  // Get filter options using NEW EXACT system - parallel loading
   const filterOptions = useQuery(api.exactLeadDatabase.getExactFilterOptions);
   const filteredLocationOptions = filterOptions ? {
     countries: filterOptions.countries,
@@ -188,9 +188,9 @@ export default function LeadDatabase() {
   } : undefined;
   const filterOptionsLoading = filterOptions === undefined;
 
-  // Debounced search term - alleen zoeken als search > 2 characters of leeg
+  // Optimized search term - start searching earlier for better UX
   const debouncedSearchTerm = useMemo(() => {
-    if (search.length === 0 || search.length >= 3) {
+    if (search.length === 0 || search.length >= 2) {
       return search;
     }
     return undefined;
@@ -893,16 +893,23 @@ export default function LeadDatabase() {
             </Button>
             {functionGroupOpen && (
               <div className="mt-2 pl-4">
-                <MultiSelect
-                  options={(filterOptions?.functionGroups || []).map(group => ({ value: group, label: group }))}
-                  value={selectedFunctionGroups}
-                  onChange={(values) => {
-                    setSelectedFunctionGroups(values);
-                    setPage(1);
-                  }}
-                  placeholder="Selecteer function groups..."
-                  disabled={filterOptionsLoading}
-                />
+                {filterOptionsLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-10 bg-gray-200 rounded animate-pulse" />
+                    <div className="text-xs text-gray-500">Functies laden...</div>
+                  </div>
+                ) : (
+                  <MultiSelect
+                    options={(filterOptions?.functionGroups || []).map(group => ({ value: group, label: group }))}
+                    value={selectedFunctionGroups}
+                    onChange={(values) => {
+                      setSelectedFunctionGroups(values);
+                      setPage(1);
+                    }}
+                    placeholder="Selecteer function groups..."
+                    disabled={filterOptionsLoading}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -1155,7 +1162,7 @@ export default function LeadDatabase() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-4 min-w-0">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Lead Database</h1>
               <div className="flex items-center gap-4 mt-1">
@@ -1176,9 +1183,15 @@ export default function LeadDatabase() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="relative flex-shrink-0">
+                {isLoading && search.length >= 2 ? (
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                )}
                 <Input
                   value={search}
                   onChange={(e) => {
@@ -1189,31 +1202,33 @@ export default function LeadDatabase() {
                   className="w-80 pl-9"
                 />
               </div>
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
-              </Button>
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Exporteer
-              </Button>
-              {selectedLeads.size > 0 && (
+              <div className="flex items-center gap-3 overflow-x-auto flex-nowrap min-w-0">
+                <Button variant="outline" size="sm" className="flex-shrink-0">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+                <Button variant="outline" size="sm" className="flex-shrink-0">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exporteer
+                </Button>
+                {selectedLeads.size > 0 && (
+                  <Button 
+                    size="sm" 
+                    className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
+                    onClick={handleConvertToContacts}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    {selectedLeads.size} Lead{selectedLeads.size > 1 ? 's' : ''} Converteren
+                  </Button>
+                )}
                 <Button 
                   size="sm" 
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={handleConvertToContacts}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                  onClick={() => setShowConversionModal(true)}
                 >
-                  <Users className="w-4 h-4 mr-2" />
-                  {selectedLeads.size} Lead{selectedLeads.size > 1 ? 's' : ''} Converteren
-                </Button>
-              )}
-              <Button 
-                size="sm" 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setShowConversionModal(true)}
-              >
 Smart Conversie
-              </Button>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1264,13 +1279,53 @@ Smart Conversie
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {isLoading ? (
-                    Array.from({ length: 8 }).map((_, i) => (
+                    // Enhanced loading skeleton with better animations
+                    Array.from({ length: 12 }).map((_, i) => (
                       <tr key={i} className="hover:bg-gray-50 transition-colors">
-                        {Array.from({ length: 7 }).map((_, j) => (
-                          <td key={j} className={`px-4 py-3 ${j === 0 ? 'sticky left-0 z-10 bg-white border-r border-gray-200' : ''}`}>
-                            <div className={`h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse rounded ${j === 0 ? 'w-[200px]' : 'w-full'}`} />
-                          </td>
-                        ))}
+                        {/* Contact person skeleton - Sticky */}
+                        <td className="sticky left-0 z-10 w-[260px] xl:w-[300px] 2xl:w-[350px] px-4 py-3 bg-white border-r border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
+                            <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                              <div className="h-3 bg-gray-100 rounded animate-pulse w-1/2" />
+                            </div>
+                          </div>
+                        </td>
+                        {/* Function skeleton */}
+                        <td className="w-[200px] xl:w-[250px] 2xl:w-[300px] px-4 py-3">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-5/6" />
+                            <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3" />
+                          </div>
+                        </td>
+                        {/* Company skeleton */}
+                        <td className="w-[220px] xl:w-[280px] 2xl:w-[320px] px-4 py-3">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-4/5" />
+                            <div className="h-3 bg-gray-100 rounded animate-pulse w-3/5" />
+                          </div>
+                        </td>
+                        {/* Industry skeleton */}
+                        <td className="w-[200px] xl:w-[250px] 2xl:w-[300px] px-4 py-3">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                            <div className="h-3 bg-gray-100 rounded animate-pulse w-1/2" />
+                          </div>
+                        </td>
+                        {/* Employees skeleton */}
+                        <td className="w-[120px] xl:w-[150px] 2xl:w-[180px] px-4 py-3">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16" />
+                        </td>
+                        {/* Location skeleton */}
+                        <td className="w-[220px] xl:w-[280px] 2xl:w-[350px] px-4 py-3">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-4/5" />
+                        </td>
+                        {/* Action skeleton */}
+                        <td className="w-[100px] xl:w-[120px] 2xl:w-[140px] px-4 py-3 text-center">
+                          <div className="h-8 bg-gray-200 rounded animate-pulse w-20 mx-auto" />
+                        </td>
                       </tr>
                     ))
                   ) : contacts.length === 0 ? (

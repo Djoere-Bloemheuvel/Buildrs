@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Get deals with optional filters
@@ -116,18 +117,47 @@ export const create = mutation({
     confidence: v.optional(v.number()),
     priority: v.optional(v.number()),
     source: v.optional(v.string()),
+    userId: v.optional(v.string()), // Voor activity logging
   },
   returns: v.id("deals"),
   handler: async (ctx, args) => {
-    return await ctx.db.insert("deals", {
-      ...args,
+    const { userId, ...dealData } = args;
+    
+    const dealId = await ctx.db.insert("deals", {
+      ...dealData,
       status: "open",
-      currency: args.currency || "EUR",
-      confidence: args.confidence || 50,
-      priority: args.priority || 3,
+      currency: dealData.currency || "EUR",
+      confidence: dealData.confidence || 50,
+      priority: dealData.priority || 3,
       isAutoCreated: false,
       isActive: true,
     });
+    
+    // Log activity
+    const value = dealData.value ? ` (€${dealData.value.toLocaleString()})` : '';
+    
+    await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+      clientId: dealData.clientId,
+      userId: userId,
+      action: "deal_created",
+      description: `Created deal: ${dealData.title}${value}`,
+      dealId: dealId,
+      contactId: dealData.contactId,
+      companyId: dealData.companyId,
+      campaignId: dealData.campaignId,
+      category: "deal",
+      priority: "high",
+      metadata: {
+        value: dealData.value,
+        currency: dealData.currency || "EUR",
+        confidence: dealData.confidence || 50,
+        source: dealData.source,
+        stageId: dealData.stageId,
+        pipelineId: dealData.pipelineId,
+      },
+    });
+    
+    return dealId;
   },
 });
 
@@ -146,10 +176,17 @@ export const update = mutation({
     ownerId: v.optional(v.id("profiles")),
     meetingPrepSummary: v.optional(v.string()),
     closedAt: v.optional(v.number()),
+    userId: v.optional(v.string()), // Voor activity logging
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { id, ...updateData } = args;
+    const { id, userId, ...updateData } = args;
+    
+    // Get existing deal for comparison
+    const existingDeal = await ctx.db.get(id);
+    if (!existingDeal) {
+      throw new Error("Deal not found");
+    }
     
     // Remove undefined values
     const cleanData = Object.fromEntries(
@@ -158,6 +195,79 @@ export const update = mutation({
     
     if (Object.keys(cleanData).length > 0) {
       await ctx.db.patch(id, cleanData);
+      
+      // Log activity for significant changes
+      const changes = [];
+      let activityAction = "deal_updated";
+      let priority = "medium";
+      
+      // Track significant changes
+      if (cleanData.status && cleanData.status !== existingDeal.status) {
+        changes.push(`status: ${existingDeal.status} → ${cleanData.status}`);
+        activityAction = cleanData.status === "won" ? "deal_won" : 
+                        cleanData.status === "lost" ? "deal_lost" : 
+                        cleanData.status === "open" ? "deal_reopened" : "deal_updated";
+        priority = cleanData.status === "won" || cleanData.status === "lost" ? "high" : "medium";
+      }
+      
+      if (cleanData.stageId && cleanData.stageId !== existingDeal.stageId) {
+        changes.push("stage changed");
+        if (activityAction === "deal_updated") activityAction = "deal_stage_changed";
+      }
+      
+      if (cleanData.value !== undefined && cleanData.value !== existingDeal.value) {
+        const oldValue = existingDeal.value ? `€${existingDeal.value.toLocaleString()}` : '€0';
+        const newValue = cleanData.value ? `€${cleanData.value.toLocaleString()}` : '€0';
+        changes.push(`value: ${oldValue} → ${newValue}`);
+        if (activityAction === "deal_updated") activityAction = "deal_value_changed";
+      }
+      
+      if (cleanData.confidence !== undefined && cleanData.confidence !== existingDeal.confidence) {
+        changes.push(`confidence: ${existingDeal.confidence || 0}% → ${cleanData.confidence}%`);
+      }
+      
+      if (cleanData.title && cleanData.title !== existingDeal.title) {
+        changes.push(`title: ${existingDeal.title} → ${cleanData.title}`);
+      }
+      
+      // Create activity description
+      let description = `Updated deal: ${existingDeal.title}`;
+      if (changes.length > 0) {
+        description += ` (${changes.join(', ')})`;
+      }
+      
+      // Special descriptions for specific actions
+      if (activityAction === "deal_won") {
+        const value = cleanData.value || existingDeal.value;
+        description = `Won deal: ${existingDeal.title}${value ? ` for €${value.toLocaleString()}` : ''}`;
+      } else if (activityAction === "deal_lost") {
+        description = `Lost deal: ${existingDeal.title}`;
+      } else if (activityAction === "deal_reopened") {
+        description = `Reopened deal: ${existingDeal.title}`;
+      }
+      
+      await ctx.runMutation(internal.activityLogger.logActivityInternal, {
+        clientId: existingDeal.clientId,
+        userId: userId,
+        action: activityAction,
+        description: description,
+        dealId: id,
+        contactId: existingDeal.contactId,
+        companyId: existingDeal.companyId,
+        campaignId: existingDeal.campaignId,
+        category: "deal",
+        priority: priority,
+        metadata: {
+          changes: changes,
+          fieldsUpdated: Object.keys(cleanData),
+          oldStatus: existingDeal.status,
+          newStatus: cleanData.status,
+          oldValue: existingDeal.value,
+          newValue: cleanData.value,
+          oldStageId: existingDeal.stageId,
+          newStageId: cleanData.stageId,
+        },
+      });
     }
     
     return null;
