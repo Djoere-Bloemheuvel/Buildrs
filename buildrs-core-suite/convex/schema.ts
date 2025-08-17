@@ -112,7 +112,22 @@ export default defineSchema({
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_domain", ["domain"])
     .index("by_industry", ["industrySlug"])
-    .index("by_name", ["name"]),
+    .index("by_name", ["name"])
+    // CRITICAL PERFORMANCE INDEXES - Added for size and industry filtering
+    .index("by_size_industry", ["companySize", "industrySlug"])
+    .index("by_enrichment_size", ["fullEnrichment", "companySize"])
+    .index("by_country_size", ["country", "companySize"])
+    .index("by_industry_size", ["industrySlug", "companySize"])
+    // Search optimization indexes
+    .index("by_name_domain", ["name", "domain"])
+    .index("by_country_industry", ["country", "industrySlug"])
+    // Complex filtering indexes for ABM
+    .index("by_enrichment_industry_size", ["fullEnrichment", "industrySlug", "companySize"])
+    // SEARCH INDEXES - Added for full-text search optimization
+    .searchIndex("search_companies", {
+      searchField: "name",
+      filterFields: ["industrySlug", "companySize", "fullEnrichment"]
+    }),
 
   // OLD CONTACTS TABLE (TO BE MIGRATED)
   contacts_old: defineTable({
@@ -181,7 +196,28 @@ export default defineSchema({
     .index("by_last_communication", ["clientId", "lastCommunicationAt"])
     .index("by_function_group", ["clientId", "functionGroup"])
     .index("by_industry", ["clientId", "industryLabel"])
-    .index("by_company_name", ["name"]),
+    .index("by_company_name", ["name"])
+    // CRITICAL PERFORMANCE INDEXES - Added for ABM and candidate queries
+    .index("by_client_function_status", ["clientId", "functionGroup", "status"])
+    .index("by_client_status_communication", ["clientId", "status", "lastCommunicationAt"])
+    .index("by_company_function", ["companyId", "functionGroup"])
+    .index("by_client_enrichment", ["clientId", "fullEnrichment"])
+    .index("by_client_enrichment_status", ["clientId", "fullEnrichment", "status"])
+    // Search optimization indexes
+    .index("by_client_name_search", ["clientId", "firstName", "lastName"])
+    .index("by_client_email_search", ["clientId", "email"])
+    // Advanced filtering indexes
+    .index("by_status_function_industry", ["status", "functionGroup", "industryLabel"])
+    .index("by_client_industry_function", ["clientId", "industryLabel", "functionGroup"])
+    // SEARCH INDEXES - Added for full-text search optimization
+    .searchIndex("search_contacts_name", {
+      searchField: "firstName",
+      filterFields: ["clientId", "status", "functionGroup"]
+    })
+    .searchIndex("search_contacts_email", {
+      searchField: "email", 
+      filterFields: ["clientId", "status"]
+    }),
 
   // ===============================
   // PUBLIC LEADS DATABASE
@@ -237,7 +273,20 @@ export default defineSchema({
     .index("by_country", ["country"])
     .index("by_source", ["sourceType"])
     .index("by_active", ["isActive"])
-    .index("by_lead_score", ["leadScore"]),
+    .index("by_lead_score", ["leadScore"])
+    // CRITICAL PERFORMANCE INDEXES - Added for lead conversion and search
+    .index("by_function_country", ["functionGroup", "country"])
+    .index("by_active_function", ["isActive", "functionGroup"])
+    .index("by_score_quality", ["leadScore", "leadQuality"])
+    .index("by_company_function", ["companyId", "functionGroup"])
+    .index("by_response_rate", ["globalResponseRate"])
+    // Search optimization
+    .index("by_name_search", ["firstName", "lastName"])
+    // SEARCH INDEXES - Added for full-text search optimization
+    .searchIndex("search_leads", {
+      searchField: "firstName",
+      filterFields: ["functionGroup", "country", "isActive"]
+    }),
 
   // ===============================
   // PROPOSITIONS & CAMPAIGNS
@@ -296,7 +345,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
   }).index("by_campaign", ["campaignId"])
     .index("by_contact", ["contactId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    // CRITICAL PERFORMANCE INDEXES - Added for campaign performance queries
+    .index("by_campaign_status", ["campaignId", "status"])
+    .index("by_contact_status", ["contactId", "status"])
+    .index("by_client_status", ["clientId", "status"])
+    .index("by_campaign_added", ["campaignId", "addedAt"])
+    .index("by_next_eligible", ["nextEligibleAt"])
+    .index("by_client_campaign", ["clientId", "campaignId"]),
 
   // ===============================
   // LINKEDIN CAMPAIGNS
@@ -395,7 +451,17 @@ export default defineSchema({
     .index("by_pipeline", ["pipelineId"])
     .index("by_stage", ["stageId"])
     .index("by_status", ["status"])
-    .index("by_owner", ["ownerId"]),
+    .index("by_owner", ["ownerId"])
+    // CRITICAL PERFORMANCE INDEXES - Added for pipeline and analytics queries
+    .index("by_client_status_stage", ["clientId", "status", "stageId"])
+    .index("by_company_status", ["companyId", "status"])
+    .index("by_owner_status", ["ownerId", "status"])
+    .index("by_value_confidence", ["value", "confidence"])
+    .index("by_pipeline_status", ["pipelineId", "status"])
+    .index("by_client_pipeline_stage", ["clientId", "pipelineId", "stageId"])
+    // Analytics optimization indexes
+    .index("by_client_active", ["clientId", "isActive"])
+    .index("by_stage_value", ["stageId", "value"]),
 
   dealLineItems: defineTable({
     dealId: v.id("deals"),
@@ -582,7 +648,17 @@ export default defineSchema({
   }).index("by_contact", ["contactId"])
     .index("by_campaign", ["campaignId"])
     .index("by_client", ["clientId"])
-    .index("by_timestamp", ["timestamp"]),
+    .index("by_timestamp", ["timestamp"])
+    // CRITICAL PERFORMANCE INDEXES - Added for timeline and engagement queries
+    .index("by_client_timestamp", ["clientId", "timestamp"])
+    .index("by_contact_direction_timestamp", ["contactId", "direction", "timestamp"])
+    .index("by_campaign_direction", ["campaignId", "direction"])
+    .index("by_channel_timestamp", ["channel", "timestamp"])
+    .index("by_contact_channel", ["contactId", "channel"])
+    .index("by_client_direction", ["clientId", "direction"])
+    // Advanced filtering indexes
+    .index("by_contact_timestamp_direction", ["contactId", "timestamp", "direction"])
+    .index("by_client_channel_timestamp", ["clientId", "channel", "timestamp"]),
 
   notes: defineTable({
     dealId: v.optional(v.id("deals")),
