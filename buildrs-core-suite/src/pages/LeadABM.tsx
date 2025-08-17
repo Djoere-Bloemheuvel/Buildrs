@@ -498,19 +498,19 @@ export default function LeadABM() {
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
           <div className="px-8">
             <TabsList className="h-12 bg-slate-100 p-1">
-              <TabsTrigger value="dashboard" className="h-10 px-6">
+              <TabsTrigger value="dashboard" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 <Target className="w-4 h-4 mr-2" />
                 Campagnes
               </TabsTrigger>
-              <TabsTrigger value="accounts" className="h-10 px-6">
+              <TabsTrigger value="accounts" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 <Building2 className="w-4 h-4 mr-2" />
                 Doelbedrijven
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="h-10 px-6">
+              <TabsTrigger value="analytics" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="settings" className="h-10 px-6">
+              <TabsTrigger value="settings" className="h-10 px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                 <Brain className="w-4 h-4 mr-2" />
                 Automatisering
               </TabsTrigger>
