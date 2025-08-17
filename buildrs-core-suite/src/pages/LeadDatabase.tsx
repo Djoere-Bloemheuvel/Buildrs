@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -173,7 +173,7 @@ export default function LeadDatabase() {
   const [locationOpen, setLocationOpen] = useState(false);
 
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(100);
+  const [pageSize] = useState<number>(50); // Verminder page size voor sneller laden
 
   // Get filter options using NEW EXACT system
   const filterOptions = useQuery(api.exactLeadDatabase.getExactFilterOptions);
@@ -188,11 +188,19 @@ export default function LeadDatabase() {
   } : undefined;
   const filterOptionsLoading = filterOptions === undefined;
 
+  // Debounced search term - alleen zoeken als search > 2 characters of leeg
+  const debouncedSearchTerm = useMemo(() => {
+    if (search.length === 0 || search.length >= 3) {
+      return search;
+    }
+    return undefined;
+  }, [search]);
+
   // Get leads data using NEW EXACT FILTERING system
   const targetEmployeeMin = employeeMinTextInput ? parseInt(employeeMinTextInput) : employeeCountMin;
   const targetEmployeeMax = employeeMaxTextInput ? parseInt(employeeMaxTextInput) : employeeCountMax;
   const data = useQuery(api.exactLeadDatabase.getExactFilteredLeads, {
-    searchTerm: search || undefined,
+    searchTerm: debouncedSearchTerm,
     limit: pageSize,
     offset: (page - 1) * pageSize,
     functionGroups: selectedFunctionGroups.length > 0 ? selectedFunctionGroups : undefined,
@@ -207,14 +215,6 @@ export default function LeadDatabase() {
   
   // Map exact lead data to EnrichedContact interface
   const contacts: EnrichedContact[] = (data?.data || []).map(lead => {
-    // DEBUG: Log employee count data
-    console.log(`🔍 Lead Debug for ${lead.firstName} ${lead.lastName}:`, {
-      employeeCount: lead.employeeCount,
-      companySize: lead.companySize,
-      debugEmployeeData: lead.debugEmployeeData,
-      companyName: lead.companyName
-    });
-    
     return {
     id: lead._id,
     contact_id: lead._id,

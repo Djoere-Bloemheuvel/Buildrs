@@ -22,15 +22,19 @@ interface SidebarProps {
 const navigation = [
   {
     name: 'Action Center',
-    href: '/',
     icon: Rocket,
-    color: 'primary'
+    color: 'primary',
+    children: [
+      { name: 'Dashboard', href: '/' }
+    ]
   },
   {
     name: 'Database',
-    href: '/lead-engine/database',
     icon: Database,
-    color: 'emerald'
+    color: 'emerald',
+    children: [
+      { name: 'Lead Database', href: '/lead-engine/database' }
+    ]
   },
   {
     name: 'Lead Engine',
@@ -112,43 +116,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           <nav className="flex-1 p-2 space-y-2 overflow-y-auto transition-colors duration-300 rounded-none will-change-transform">
             {navigation.map((item) => (
               <div key={item.name} className="relative">
-                {item.children ? (
-                  <SidebarFlyout
-                    name={item.name}
-                    icon={item.icon}
-                    color={item.color}
-                    children={item.children}
-                    isActive={false}
-                  />
-                ) : (
-                   <Link
-                    to={item.href!}
-                     className={cn(
-                        "flex items-center justify-center w-12 h-12 transition-all duration-300 group relative rounded-none",
-                      location.pathname === item.href
-                         ? (theme === 'premium-white' ? "bg-blue-50" : "bg-white/5")
-                         : ""
-                    )}
-                  >
-                      <span className={cn(
-                        "icon-glow-wrap",
-                        location.pathname === item.href ? "icon-glow-active" : ""
-                      )}>
-                      <item.icon 
-                        className={cn(
-                          "w-4 h-4 transition-all duration-300 icon-glow",
-                           location.pathname === item.href
-                             ? (theme === 'premium-white' 
-                                  ? "text-blue-600 [--icon-glow-color:rgba(59,130,246,0.35)] [--icon-glow-blur:8px]" 
-                                  : "text-white [--icon-glow-color:rgba(255,255,255,0.25)] [--icon-glow-blur:6px]")
-                             : (theme === 'premium-white' 
-                                  ? "text-gray-400 [--icon-glow-color:rgba(59,130,246,0.0)] [--icon-glow-blur:0px]" 
-                                  : "text-[#9CA3AF] [--icon-glow-color:rgba(255,255,255,0.0)] [--icon-glow-blur:0px]")
-                        )}
-                      />
-                      </span>
-                  </Link>
-                )}
+                <SidebarFlyout
+                  name={item.name}
+                  icon={item.icon}
+                  color={item.color}
+                  children={item.children}
+                  isActive={false}
+                />
               </div>
             ))}
           </nav>

@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   ChevronRight, 
@@ -78,6 +78,7 @@ const getSubmenuIcon = (name: string) => {
 
 export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: FlyoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const { theme } = useTheme();
   const openTimer = useRef<number | null>(null);
@@ -108,6 +109,13 @@ export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: F
   const hasActiveChild = children.some(child => location.pathname === child.href);
   const activeBg = theme === 'premium-white' ? 'bg-blue-50' : 'bg-white/5';
 
+  const handleIconClick = () => {
+    // Navigate to first child when clicking on icon
+    if (children.length > 0) {
+      navigate(children[0].href);
+    }
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -118,6 +126,7 @@ export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: F
           )}
           onMouseEnter={openWithDelay}
           onMouseLeave={closeWithDelay}
+          onClick={handleIconClick}
         >
           <span className={cn(
             "icon-glow-wrap",
@@ -143,18 +152,20 @@ export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: F
         side="right"
         align="start"
         sideOffset={10}
-        className="w-72 max-h-[70vh] overflow-y-auto p-0 rounded-xl will-change-transform bg-white/5 supports-[backdrop-filter]:backdrop-blur-xl border border-white/10 shadow-2xl animate-in fade-in-0 slide-in-from-left-1 duration-150 ease-in-out"
+        className="w-72 max-h-[70vh] overflow-y-auto p-0 rounded-xl will-change-transform bg-white/95 supports-[backdrop-filter]:backdrop-blur-xl border border-gray-200 shadow-2xl animate-in fade-in-0 slide-in-from-left-1 duration-150 ease-in-out"
         onMouseEnter={openWithDelay}
         onMouseLeave={closeWithDelay}
         onWheelCapture={() => setIsOpen(true)}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 p-4 border-b border-white/10 bg-white/5 supports-[backdrop-filter]:backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <Icon className="w-4 h-4 text-[#9CA3AF]" />
-            <h3 className="font-poppins font-semibold text-lg">{name}</h3>
+        {/* Header - only show if more than 1 item */}
+        {children.length > 1 && (
+          <div className="sticky top-0 z-10 p-4 border-b border-gray-200 bg-gray-50/90 supports-[backdrop-filter]:backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Icon className="w-4 h-4 text-gray-500" />
+              <h3 className="font-poppins font-semibold text-lg text-gray-900">{name}</h3>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Menu Items */}
         <div className="p-2 space-y-1">
@@ -167,14 +178,10 @@ export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: F
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-300 hover:bg-glass/30 hover:scale-[1.02] group",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-300 hover:bg-gray-50 hover:scale-[1.02] group",
                   isItemActive
-                    ? (theme === 'premium-white'
-                        ? "bg-[#F0F7FF] text-blue-600 font-medium"
-                        : "bg-[#0E1116] text-[#7C84FF] font-medium")
-                    : (theme === 'premium-white'
-                        ? "text-gray-600 hover:text-blue-600"
-                        : "text-muted-foreground hover:text-[#E0E7FF]")
+                    ? "bg-blue-50 text-blue-600 font-medium"
+                    : "text-gray-600 hover:text-blue-600"
                 )}
                 onMouseEnter={() => {
                   // Prefetch route chunk by creating a prefetch link element
@@ -190,10 +197,8 @@ export const SidebarFlyout = ({ name, icon: Icon, color, children, isActive }: F
                   className={cn(
                     "w-4 h-4 transition-all duration-300",
                     isItemActive
-                      ? (theme === 'premium-white' ? "text-blue-600" : "text-[#7C84FF]")
-                      : (theme === 'premium-white' 
-                          ? "text-gray-400 group-hover:text-blue-500" 
-                          : "text-[#9CA3AF] group-hover:text-[#E0E7FF]")
+                      ? "text-blue-600"
+                      : "text-gray-400 group-hover:text-blue-500"
                   )}
                 />
                 <span className="flex-1">{item.name}</span>
